@@ -78,5 +78,5 @@ models:
     system_prompt: *sky_t1_system_prompt
 
   # Added by ddkang's lab
-  Qwen/Qwen2.5-7B:
+  Qwen/Qwen2.5-Math-7B:
     system_prompt: *qwen_cot_system_prompt
