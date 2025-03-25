@@ -52,11 +52,17 @@ def load_unsloth_pretrained_model(
     """
     from unsloth import FastLanguageModel
 
-    unsloth_kwargs = _get_unsloth_kwargs(config, model_args.model_name_or_path, model_args)
+    unsloth_kwargs = _get_unsloth_kwargs(
+        config, model_args.model_name_or_path, model_args
+    )
     try:
         model, _ = FastLanguageModel.from_pretrained(**unsloth_kwargs)
     except NotImplementedError:
-        logger.warning_rank0("Unsloth does not support model type {}.".format(getattr(config, "model_type", None)))
+        logger.warning_rank0(
+            "Unsloth does not support model type {}.".format(
+                getattr(config, "model_type", None)
+            )
+        )
         model = None
         model_args.use_unsloth = False
 
@@ -87,14 +93,20 @@ def load_unsloth_peft_model(
     """
     from unsloth import FastLanguageModel
 
-    unsloth_kwargs = _get_unsloth_kwargs(config, model_args.adapter_name_or_path[0], model_args)
+    unsloth_kwargs = _get_unsloth_kwargs(
+        config, model_args.adapter_name_or_path[0], model_args
+    )
     try:
         if not is_trainable:
             unsloth_kwargs["use_gradient_checkpointing"] = False
 
         model, _ = FastLanguageModel.from_pretrained(**unsloth_kwargs)
     except NotImplementedError:
-        raise ValueError("Unsloth does not support model type {}.".format(getattr(config, "model_type", None)))
+        raise ValueError(
+            "Unsloth does not support model type {}.".format(
+                getattr(config, "model_type", None)
+            )
+        )
 
     if not is_trainable:
         FastLanguageModel.for_inference(model)

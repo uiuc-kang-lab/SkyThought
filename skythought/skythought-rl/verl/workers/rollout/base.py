@@ -17,11 +17,10 @@ from typing import Iterable, Union
 
 from verl import DataProto
 
-__all__ = ['BaseRollout']
+__all__ = ["BaseRollout"]
 
 
 class BaseRollout(ABC):
-
     def __init__(self):
         """
 

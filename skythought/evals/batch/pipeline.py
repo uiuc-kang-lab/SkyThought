@@ -192,9 +192,9 @@ class Pipeline:
 
         ray_remote_args = {}
         if self.engine_initializer.accelerator_type:
-            ray_remote_args["accelerator_type"] = (
-                self.engine_initializer.accelerator_type
-            )
+            ray_remote_args[
+                "accelerator_type"
+            ] = self.engine_initializer.accelerator_type
         ray_remote_args.update({"runtime_env": {"env_vars": self.env_vars}})
 
         if dataset is not None:

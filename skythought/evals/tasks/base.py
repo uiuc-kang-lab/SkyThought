@@ -38,7 +38,6 @@ class TaskConfig(BaseModel):
 
 
 class TaskHandler(ABC):
-
     def __init__(self, task_config: TaskConfig):
         self.task_config = task_config
 

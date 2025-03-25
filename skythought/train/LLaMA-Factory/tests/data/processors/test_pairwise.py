@@ -48,7 +48,9 @@ def _convert_sharegpt_to_openai(messages: List[Dict[str, str]]) -> List[Dict[str
     role_mapping = {"human": "user", "gpt": "assistant", "system": "system"}
     new_messages = []
     for message in messages:
-        new_messages.append({"role": role_mapping[message["from"]], "content": message["value"]})
+        new_messages.append(
+            {"role": role_mapping[message["from"]], "content": message["value"]}
+        )
 
     return new_messages
 
@@ -60,18 +62,32 @@ def test_pairwise_data(num_samples: int):
     original_data = load_dataset(DEMO_DATA, name="dpo_en_demo", split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
     for index in indexes:
-        chosen_messages = original_data["conversations"][index] + [original_data["chosen"][index]]
-        rejected_messages = original_data["conversations"][index] + [original_data["rejected"][index]]
+        chosen_messages = original_data["conversations"][index] + [
+            original_data["chosen"][index]
+        ]
+        rejected_messages = original_data["conversations"][index] + [
+            original_data["rejected"][index]
+        ]
         chosen_messages = _convert_sharegpt_to_openai(chosen_messages)
         rejected_messages = _convert_sharegpt_to_openai(rejected_messages)
         ref_chosen_input_ids = ref_tokenizer.apply_chat_template(chosen_messages)
-        chosen_prompt_len = len(ref_tokenizer.apply_chat_template(chosen_messages[:-1], add_generation_prompt=True))
-        ref_chosen_labels = [IGNORE_INDEX] * chosen_prompt_len + ref_chosen_input_ids[chosen_prompt_len:]
+        chosen_prompt_len = len(
+            ref_tokenizer.apply_chat_template(
+                chosen_messages[:-1], add_generation_prompt=True
+            )
+        )
+        ref_chosen_labels = [IGNORE_INDEX] * chosen_prompt_len + ref_chosen_input_ids[
+            chosen_prompt_len:
+        ]
         ref_rejected_input_ids = ref_tokenizer.apply_chat_template(rejected_messages)
         rejected_prompt_len = len(
-            ref_tokenizer.apply_chat_template(rejected_messages[:-1], add_generation_prompt=True)
+            ref_tokenizer.apply_chat_template(
+                rejected_messages[:-1], add_generation_prompt=True
+            )
         )
-        ref_rejected_labels = [IGNORE_INDEX] * rejected_prompt_len + ref_rejected_input_ids[rejected_prompt_len:]
+        ref_rejected_labels = [
+            IGNORE_INDEX
+        ] * rejected_prompt_len + ref_rejected_input_ids[rejected_prompt_len:]
         assert train_dataset["chosen_input_ids"][index] == ref_chosen_input_ids
         assert train_dataset["chosen_labels"][index] == ref_chosen_labels
         assert train_dataset["rejected_input_ids"][index] == ref_rejected_input_ids

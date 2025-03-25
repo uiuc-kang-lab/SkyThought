@@ -85,9 +85,9 @@ def post_process_tests_inputs(raw_text, is_stdin):
                 try:
                     test_cases = json.loads(json_array_string)
                     for test_case in test_cases:
-                        test_case["testtype"] = (
-                            "functional"  # Add 'testtype' for each test case
-                        )
+                        test_case[
+                            "testtype"
+                        ] = "functional"  # Add 'testtype' for each test case
                     return test_cases
                 except json.JSONDecodeError as e:
                     print(f"Error parsing concatenated JSON: {e}")

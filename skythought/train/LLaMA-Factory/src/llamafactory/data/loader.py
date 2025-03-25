@@ -31,7 +31,11 @@ from .preprocess import get_preprocess_and_print_func
 
 if TYPE_CHECKING:
     from datasets import Dataset, IterableDataset
-    from transformers import PreTrainedTokenizer, ProcessorMixin, Seq2SeqTrainingArguments
+    from transformers import (
+        PreTrainedTokenizer,
+        ProcessorMixin,
+        Seq2SeqTrainingArguments,
+    )
 
     from ..hparams import DataArguments, ModelArguments
     from .data_utils import DatasetModule
@@ -76,9 +80,14 @@ def _load_single_dataset(
 
         data_path = FILEEXT2TYPE.get(os.path.splitext(data_files[0])[-1][1:], None)
         if data_path is None:
-            raise ValueError("Allowed file types: {}.".format(",".join(FILEEXT2TYPE.keys())))
+            raise ValueError(
+                "Allowed file types: {}.".format(",".join(FILEEXT2TYPE.keys()))
+            )
 
-        if any(data_path != FILEEXT2TYPE.get(os.path.splitext(data_file)[-1][1:], None) for data_file in data_files):
+        if any(
+            data_path != FILEEXT2TYPE.get(os.path.splitext(data_file)[-1][1:], None)
+            for data_file in data_files
+        ):
             raise ValueError("File types should be identical.")
     else:
         raise NotImplementedError(f"Unknown load type: {dataset_attr.load_from}.")
@@ -134,7 +143,9 @@ def _load_single_dataset(
 
     if dataset_attr.num_samples is not None and not data_args.streaming:
         target_num = dataset_attr.num_samples
-        indexes = np.random.permutation(len(dataset))[:target_num]  # all samples should be included
+        indexes = np.random.permutation(len(dataset))[
+            :target_num
+        ]  # all samples should be included
         target_num -= len(indexes)
         if target_num > 0:
             expand_indexes = np.random.choice(len(dataset), target_num)
@@ -142,7 +153,9 @@ def _load_single_dataset(
 
         assert len(indexes) == dataset_attr.num_samples, "Sample num mismatched."
         dataset = dataset.select(indexes)
-        logger.info_rank0(f"Sampled {dataset_attr.num_samples} examples from dataset {dataset_attr}.")
+        logger.info_rank0(
+            f"Sampled {dataset_attr.num_samples} examples from dataset {dataset_attr}."
+        )
 
     if data_args.max_samples is not None:  # truncate dataset
         max_samples = min(data_args.max_samples, len(dataset))
@@ -166,10 +179,16 @@ def _get_merged_dataset(
 
     datasets = []
     for dataset_attr in get_dataset_list(dataset_names, data_args.dataset_dir):
-        if (stage == "rm" and dataset_attr.ranking is False) or (stage != "rm" and dataset_attr.ranking is True):
-            raise ValueError("The dataset is not applicable in the current training stage.")
+        if (stage == "rm" and dataset_attr.ranking is False) or (
+            stage != "rm" and dataset_attr.ranking is True
+        ):
+            raise ValueError(
+                "The dataset is not applicable in the current training stage."
+            )
 
-        datasets.append(_load_single_dataset(dataset_attr, model_args, data_args, training_args))
+        datasets.append(
+            _load_single_dataset(dataset_attr, model_args, data_args, training_args)
+        )
 
     return merge_dataset(datasets, data_args, seed=training_args.seed)
 
@@ -191,14 +210,20 @@ def _get_preprocessed_dataset(
         return None
 
     preprocess_func, print_function = get_preprocess_and_print_func(
-        data_args, stage, template, tokenizer, processor, do_generate=(training_args.predict_with_generate and is_eval)
+        data_args,
+        stage,
+        template,
+        tokenizer,
+        processor,
+        do_generate=(training_args.predict_with_generate and is_eval),
     )
     column_names = list(next(iter(dataset)).keys())
     kwargs = {}
     if not data_args.streaming:
         kwargs = dict(
             num_proc=data_args.preprocessing_num_workers,
-            load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
+            load_from_cache_file=(not data_args.overwrite_cache)
+            or (training_args.local_process_index != 0),
             desc="Running tokenizer on dataset",
         )
 
@@ -216,9 +241,13 @@ def _get_preprocessed_dataset(
             print_function(next(iter(dataset)))
         except StopIteration:
             if stage == "pt":
-                raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
+                raise RuntimeError(
+                    "Cannot find sufficient samples, consider increasing dataset size."
+                )
             else:
-                raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
+                raise RuntimeError(
+                    "Cannot find valid samples, check `data/README.md` for the data format."
+                )
 
     return dataset
 
@@ -238,9 +267,15 @@ def get_dataset(
     # Load tokenized dataset
     if data_args.tokenized_path is not None:
         if has_tokenized_data(data_args.tokenized_path):
-            logger.warning_rank0("Loading dataset from disk will ignore other data arguments.")
-            tokenized_data: Union["Dataset", "DatasetDict"] = load_from_disk(data_args.tokenized_path)
-            logger.info_rank0(f"Loaded tokenized dataset from {data_args.tokenized_path}.")
+            logger.warning_rank0(
+                "Loading dataset from disk will ignore other data arguments."
+            )
+            tokenized_data: Union["Dataset", "DatasetDict"] = load_from_disk(
+                data_args.tokenized_path
+            )
+            logger.info_rank0(
+                f"Loaded tokenized dataset from {data_args.tokenized_path}."
+            )
 
             dataset_module: Dict[str, "Dataset"] = {}
             if isinstance(tokenized_data, DatasetDict):
@@ -254,7 +289,9 @@ def get_dataset(
                 dataset_module["train_dataset"] = tokenized_data
 
             if data_args.streaming:
-                dataset_module = {k: v.to_iterable_dataset() for k, v in dataset_module.items()}
+                dataset_module = {
+                    k: v.to_iterable_dataset() for k, v in dataset_module.items()
+                }
 
             return dataset_module
 
@@ -263,15 +300,33 @@ def get_dataset(
 
     # Load and preprocess dataset
     with training_args.main_process_first(desc="load dataset"):
-        dataset = _get_merged_dataset(data_args.dataset, model_args, data_args, training_args, stage)
-        eval_dataset = _get_merged_dataset(data_args.eval_dataset, model_args, data_args, training_args, stage)
+        dataset = _get_merged_dataset(
+            data_args.dataset, model_args, data_args, training_args, stage
+        )
+        eval_dataset = _get_merged_dataset(
+            data_args.eval_dataset, model_args, data_args, training_args, stage
+        )
 
     with training_args.main_process_first(desc="pre-process dataset"):
         dataset = _get_preprocessed_dataset(
-            dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=False
+            dataset,
+            data_args,
+            training_args,
+            stage,
+            template,
+            tokenizer,
+            processor,
+            is_eval=False,
         )
         eval_dataset = _get_preprocessed_dataset(
-            eval_dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=True
+            eval_dataset,
+            data_args,
+            training_args,
+            stage,
+            template,
+            tokenizer,
+            processor,
+            is_eval=True,
         )
 
         if data_args.val_size > 1e-6:
@@ -280,13 +335,17 @@ def get_dataset(
             dataset_dict = {}
             if dataset is not None:
                 if data_args.streaming:
-                    dataset = dataset.shuffle(buffer_size=data_args.buffer_size, seed=training_args.seed)
+                    dataset = dataset.shuffle(
+                        buffer_size=data_args.buffer_size, seed=training_args.seed
+                    )
 
                 dataset_dict["train"] = dataset
 
             if eval_dataset is not None:
                 if data_args.streaming:
-                    eval_dataset = eval_dataset.shuffle(buffer_size=data_args.buffer_size, seed=training_args.seed)
+                    eval_dataset = eval_dataset.shuffle(
+                        buffer_size=data_args.buffer_size, seed=training_args.seed
+                    )
 
                 dataset_dict["validation"] = eval_dataset
 
@@ -295,8 +354,12 @@ def get_dataset(
         if data_args.tokenized_path is not None:
             if training_args.should_save:
                 dataset_dict.save_to_disk(data_args.tokenized_path)
-                logger.info_rank0(f"Tokenized dataset saved at {data_args.tokenized_path}.")
-                logger.info_rank0(f"Please restart the training with `tokenized_path: {data_args.tokenized_path}`.")
+                logger.info_rank0(
+                    f"Tokenized dataset saved at {data_args.tokenized_path}."
+                )
+                logger.info_rank0(
+                    f"Please restart the training with `tokenized_path: {data_args.tokenized_path}`."
+                )
 
             sys.exit(0)
 

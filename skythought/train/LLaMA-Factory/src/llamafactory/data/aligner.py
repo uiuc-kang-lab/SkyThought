@@ -49,7 +49,9 @@ def _convert_images(
 
     if dataset_attr.load_from in ["script", "file"]:
         for i in range(len(images)):
-            if isinstance(images[i], str) and os.path.isfile(os.path.join(data_args.image_dir, images[i])):
+            if isinstance(images[i], str) and os.path.isfile(
+                os.path.join(data_args.image_dir, images[i])
+            ):
                 images[i] = os.path.join(data_args.image_dir, images[i])
 
     return images
@@ -72,7 +74,9 @@ def _convert_videos(
 
     if dataset_attr.load_from in ["script", "file"]:
         for i in range(len(videos)):
-            if isinstance(videos[i], str) and os.path.isfile(os.path.join(data_args.image_dir, videos[i])):
+            if isinstance(videos[i], str) and os.path.isfile(
+                os.path.join(data_args.image_dir, videos[i])
+            ):
                 videos[i] = os.path.join(data_args.image_dir, videos[i])
 
     return videos
@@ -99,10 +103,16 @@ def convert_alpaca(
     if dataset_attr.query and example[dataset_attr.query]:
         query.append(example[dataset_attr.query])
 
-    prompt.append({"role": Role.USER.value, "content": "\n".join(query)})  # "prompt\nquery"
+    prompt.append(
+        {"role": Role.USER.value, "content": "\n".join(query)}
+    )  # "prompt\nquery"
 
-    if dataset_attr.kto_tag and isinstance(example[dataset_attr.kto_tag], bool):  # kto example
-        response = [{"role": Role.ASSISTANT.value, "content": example[dataset_attr.response]}]
+    if dataset_attr.kto_tag and isinstance(
+        example[dataset_attr.kto_tag], bool
+    ):  # kto example
+        response = [
+            {"role": Role.ASSISTANT.value, "content": example[dataset_attr.response]}
+        ]
         if example[dataset_attr.kto_tag]:
             response = response + [{"role": Role.ASSISTANT.value, "content": ""}]
         else:
@@ -116,20 +126,32 @@ def convert_alpaca(
             {"role": Role.ASSISTANT.value, "content": example[dataset_attr.chosen]},
             {"role": Role.ASSISTANT.value, "content": example[dataset_attr.rejected]},
         ]
-    elif dataset_attr.response and isinstance(example[dataset_attr.response], str):  # normal example
-        response = [{"role": Role.ASSISTANT.value, "content": example[dataset_attr.response]}]
+    elif dataset_attr.response and isinstance(
+        example[dataset_attr.response], str
+    ):  # normal example
+        response = [
+            {"role": Role.ASSISTANT.value, "content": example[dataset_attr.response]}
+        ]
     else:  # unsupervised
         response = []
 
-    convert_images = partial(_convert_images, dataset_attr=dataset_attr, data_args=data_args)
-    convert_videos = partial(_convert_videos, dataset_attr=dataset_attr, data_args=data_args)
+    convert_images = partial(
+        _convert_images, dataset_attr=dataset_attr, data_args=data_args
+    )
+    convert_videos = partial(
+        _convert_videos, dataset_attr=dataset_attr, data_args=data_args
+    )
     output = {
         "_prompt": prompt,
         "_response": response,
         "_system": example[dataset_attr.system] if dataset_attr.system else "",
         "_tools": example[dataset_attr.tools] if dataset_attr.tools else "",
-        "_images": convert_images(example[dataset_attr.images]) if dataset_attr.images else None,
-        "_videos": convert_videos(example[dataset_attr.videos]) if dataset_attr.videos else None,
+        "_images": convert_images(example[dataset_attr.images])
+        if dataset_attr.images
+        else None,
+        "_videos": convert_videos(example[dataset_attr.videos])
+        if dataset_attr.videos
+        else None,
     }
     return output
 
@@ -171,7 +193,10 @@ def convert_sharegpt(
             broken_data = True
 
         aligned_messages.append(
-            {"role": tag_mapping[message[dataset_attr.role_tag]], "content": message[dataset_attr.content_tag]}
+            {
+                "role": tag_mapping[message[dataset_attr.role_tag]],
+                "content": message[dataset_attr.content_tag],
+            }
         )
 
     if (not dataset_attr.ranking and len(aligned_messages) % 2 != 0) or (
@@ -180,7 +205,9 @@ def convert_sharegpt(
         logger.warning_rank0(f"Invalid message count in {messages}.")
         broken_data = True
 
-    if dataset_attr.kto_tag and isinstance(example[dataset_attr.kto_tag], bool):  # kto example
+    if dataset_attr.kto_tag and isinstance(
+        example[dataset_attr.kto_tag], bool
+    ):  # kto example
         prompt = aligned_messages[:-1]
         response = aligned_messages[-1:]
         if example[dataset_attr.kto_tag]:
@@ -203,8 +230,14 @@ def convert_sharegpt(
 
         prompt = aligned_messages
         response = [
-            {"role": tag_mapping[chosen[dataset_attr.role_tag]], "content": chosen[dataset_attr.content_tag]},
-            {"role": tag_mapping[rejected[dataset_attr.role_tag]], "content": rejected[dataset_attr.content_tag]},
+            {
+                "role": tag_mapping[chosen[dataset_attr.role_tag]],
+                "content": chosen[dataset_attr.content_tag],
+            },
+            {
+                "role": tag_mapping[rejected[dataset_attr.role_tag]],
+                "content": rejected[dataset_attr.content_tag],
+            },
         ]
     else:  # normal example
         prompt = aligned_messages[:-1]
@@ -214,15 +247,23 @@ def convert_sharegpt(
         logger.warning_rank0("Skipping this abnormal example.")
         prompt, response = [], []
 
-    convert_images = partial(_convert_images, dataset_attr=dataset_attr, data_args=data_args)
-    convert_videos = partial(_convert_videos, dataset_attr=dataset_attr, data_args=data_args)
+    convert_images = partial(
+        _convert_images, dataset_attr=dataset_attr, data_args=data_args
+    )
+    convert_videos = partial(
+        _convert_videos, dataset_attr=dataset_attr, data_args=data_args
+    )
     output = {
         "_prompt": prompt,
         "_response": response,
         "_system": system,
         "_tools": example[dataset_attr.tools] if dataset_attr.tools else "",
-        "_images": convert_images(example[dataset_attr.images]) if dataset_attr.images else None,
-        "_videos": convert_videos(example[dataset_attr.videos]) if dataset_attr.videos else None,
+        "_images": convert_images(example[dataset_attr.images])
+        if dataset_attr.images
+        else None,
+        "_videos": convert_videos(example[dataset_attr.videos])
+        if dataset_attr.videos
+        else None,
     }
     return output
 
@@ -243,16 +284,21 @@ def align_dataset(
         _videos: [],
     """
     if dataset_attr.formatting == "alpaca":
-        convert_func = partial(convert_alpaca, dataset_attr=dataset_attr, data_args=data_args)
+        convert_func = partial(
+            convert_alpaca, dataset_attr=dataset_attr, data_args=data_args
+        )
     else:
-        convert_func = partial(convert_sharegpt, dataset_attr=dataset_attr, data_args=data_args)
+        convert_func = partial(
+            convert_sharegpt, dataset_attr=dataset_attr, data_args=data_args
+        )
 
     column_names = list(next(iter(dataset)).keys())
     kwargs = {}
     if not data_args.streaming:
         kwargs = dict(
             num_proc=data_args.preprocessing_num_workers,
-            load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
+            load_from_cache_file=(not data_args.overwrite_cache)
+            or (training_args.local_process_index != 0),
             desc="Converting format of dataset",
         )
 

@@ -11,7 +11,6 @@ from .taco_util import run_test as taco_run_test
 
 
 class TACOTaskHandler(TaskHandler):
-
     def generate_prompt(self, problem):
         prompt = problem["question"]
         starter_code = (

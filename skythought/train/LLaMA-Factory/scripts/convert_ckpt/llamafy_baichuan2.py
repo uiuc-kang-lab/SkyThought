@@ -33,11 +33,17 @@ from transformers.modeling_utils import (
 CONFIG_NAME = "config.json"
 
 
-def save_weight(input_dir: str, output_dir: str, shard_size: str, save_safetensors: bool):
+def save_weight(
+    input_dir: str, output_dir: str, shard_size: str, save_safetensors: bool
+):
     baichuan2_state_dict: Dict[str, torch.Tensor] = OrderedDict()
     for filepath in tqdm(os.listdir(input_dir), desc="Load weights"):
-        if os.path.isfile(os.path.join(input_dir, filepath)) and filepath.endswith(".bin"):
-            shard_weight = torch.load(os.path.join(input_dir, filepath), map_location="cpu")
+        if os.path.isfile(os.path.join(input_dir, filepath)) and filepath.endswith(
+            ".bin"
+        ):
+            shard_weight = torch.load(
+                os.path.join(input_dir, filepath), map_location="cpu"
+            )
             baichuan2_state_dict.update(shard_weight)
 
     llama2_state_dict: Dict[str, torch.Tensor] = OrderedDict()
@@ -45,19 +51,27 @@ def save_weight(input_dir: str, output_dir: str, shard_size: str, save_safetenso
         if "W_pack" in key:
             proj_size = value.size(0) // 3
             llama2_state_dict[key.replace("W_pack", "q_proj")] = value[:proj_size, :]
-            llama2_state_dict[key.replace("W_pack", "k_proj")] = value[proj_size : 2 * proj_size, :]
-            llama2_state_dict[key.replace("W_pack", "v_proj")] = value[2 * proj_size :, :]
+            llama2_state_dict[key.replace("W_pack", "k_proj")] = value[
+                proj_size : 2 * proj_size, :
+            ]
+            llama2_state_dict[key.replace("W_pack", "v_proj")] = value[
+                2 * proj_size :, :
+            ]
         elif "lm_head" in key:
             llama2_state_dict[key] = torch.nn.functional.normalize(value)
         else:
             llama2_state_dict[key] = value
 
     weights_name = SAFE_WEIGHTS_NAME if save_safetensors else WEIGHTS_NAME
-    shards, index = shard_checkpoint(llama2_state_dict, max_shard_size=shard_size, weights_name=weights_name)
+    shards, index = shard_checkpoint(
+        llama2_state_dict, max_shard_size=shard_size, weights_name=weights_name
+    )
 
     for shard_file, shard in tqdm(shards.items(), desc="Save weights"):
         if save_safetensors:
-            save_file(shard, os.path.join(output_dir, shard_file), metadata={"format": "pt"})
+            save_file(
+                shard, os.path.join(output_dir, shard_file), metadata={"format": "pt"}
+            )
         else:
             torch.save(shard, os.path.join(output_dir, shard_file))
 

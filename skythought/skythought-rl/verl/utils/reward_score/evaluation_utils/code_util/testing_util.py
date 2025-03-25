@@ -24,6 +24,7 @@ from enum import Enum
 
 import traceback
 
+
 def truncatefn(s, length=300):
     assert isinstance(s, str)
     if len(s) <= length:
@@ -80,11 +81,15 @@ def string_int_check(val):
 def combined_int_check(val):
     return only_int_check(val) or string_int_check(val)
 
+
 def clean_traceback(error_traceback):
-    file_start = error_traceback.find('File \"<string>\"')
+    file_start = error_traceback.find('File "<string>"')
     # print(file_start)
-    error_traceback = "Traceback (most recent call last):\n  " + error_traceback[file_start:]
+    error_traceback = (
+        "Traceback (most recent call last):\n  " + error_traceback[file_start:]
+    )
     return error_traceback
+
 
 def run_test(in_outs, test=None, debug=False, timeout=15):
     """
@@ -704,7 +709,7 @@ def reliability_guard(maximum_memory_bytes=None):
     os.environ["OMP_NUM_THREADS"] = "1"
 
     os.kill = None
-    os.system = None # 防止干扰repl评测
+    os.system = None  # 防止干扰repl评测
     os.putenv = None
     os.remove = None
     os.removedirs = None

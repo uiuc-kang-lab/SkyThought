@@ -38,7 +38,9 @@ from . import logging
 
 _is_fp16_available = is_torch_npu_available() or is_torch_cuda_available()
 try:
-    _is_bf16_available = is_torch_bf16_gpu_available() or (is_torch_npu_available() and torch.npu.is_bf16_supported())
+    _is_bf16_available = is_torch_bf16_gpu_available() or (
+        is_torch_npu_available() and torch.npu.is_bf16_supported()
+    )
 except Exception:
     _is_bf16_available = False
 
@@ -78,16 +80,32 @@ def check_dependencies() -> None:
     Checks the version of the required packages.
     """
     if os.getenv("DISABLE_VERSION_CHECK", "0").lower() in ["true", "1"]:
-        logger.warning_once("Version checking has been disabled, may lead to unexpected behaviors.")
+        logger.warning_once(
+            "Version checking has been disabled, may lead to unexpected behaviors."
+        )
     else:
-        require_version("transformers>=4.41.2,<=4.46.1", "To fix: pip install transformers>=4.41.2,<=4.46.1")
-        require_version("datasets>=2.16.0,<=3.1.0", "To fix: pip install datasets>=2.16.0,<=3.1.0")
-        require_version("accelerate>=0.34.0,<=1.0.1", "To fix: pip install accelerate>=0.34.0,<=1.0.1")
-        require_version("peft>=0.11.1,<=0.12.0", "To fix: pip install peft>=0.11.1,<=0.12.0")
+        require_version(
+            "transformers>=4.41.2,<=4.46.1",
+            "To fix: pip install transformers>=4.41.2,<=4.46.1",
+        )
+        require_version(
+            "datasets>=2.16.0,<=3.1.0", "To fix: pip install datasets>=2.16.0,<=3.1.0"
+        )
+        require_version(
+            "accelerate>=0.34.0,<=1.0.1",
+            "To fix: pip install accelerate>=0.34.0,<=1.0.1",
+        )
+        require_version(
+            "peft>=0.11.1,<=0.12.0", "To fix: pip install peft>=0.11.1,<=0.12.0"
+        )
         require_version("trl>=0.8.6,<=0.9.6", "To fix: pip install trl>=0.8.6,<=0.9.6")
 
 
-def calculate_tps(dataset: Sequence[Dict[str, Any]], metrics: Dict[str, float], stage: Literal["sft", "rm"]) -> float:
+def calculate_tps(
+    dataset: Sequence[Dict[str, Any]],
+    metrics: Dict[str, float],
+    stage: Literal["sft", "rm"],
+) -> float:
     r"""
     Calculates effective tokens per second.
     """
@@ -96,7 +114,9 @@ def calculate_tps(dataset: Sequence[Dict[str, Any]], metrics: Dict[str, float], 
         if stage == "sft":
             effective_token_num += len(data["input_ids"])
         elif stage == "rm":
-            effective_token_num += len(data["chosen_input_ids"]) + len(data["rejected_input_ids"])
+            effective_token_num += len(data["chosen_input_ids"]) + len(
+                data["rejected_input_ids"]
+            )
 
     result = effective_token_num * metrics["epoch"] / metrics["train_runtime"]
     return result / dist.get_world_size() if dist.is_initialized() else result
@@ -115,7 +135,9 @@ def count_parameters(model: "torch.nn.Module") -> Tuple[int, int]:
 
         # Due to the design of 4bit linear layers from bitsandbytes, multiply the number of parameters by itemsize
         if param.__class__.__name__ == "Params4bit":
-            if hasattr(param, "quant_storage") and hasattr(param.quant_storage, "itemsize"):
+            if hasattr(param, "quant_storage") and hasattr(
+                param.quant_storage, "itemsize"
+            ):
                 num_bytes = param.quant_storage.itemsize
             elif hasattr(param, "element_size"):  # for older pytorch version
                 num_bytes = param.element_size()
@@ -216,7 +238,9 @@ def numpify(inputs: Union["NDArray", "torch.Tensor"]) -> "NDArray":
     """
     if isinstance(inputs, torch.Tensor):
         inputs = inputs.cpu()
-        if inputs.dtype == torch.bfloat16:  # numpy does not support bfloat16 until 1.21.4
+        if (
+            inputs.dtype == torch.bfloat16
+        ):  # numpy does not support bfloat16 until 1.21.4
             inputs = inputs.to(torch.float32)
 
         inputs = inputs.numpy()
@@ -248,14 +272,20 @@ def torch_gc() -> None:
 
 
 def try_download_model_from_other_hub(model_args: "ModelArguments") -> str:
-    if (not use_modelscope() and not use_openmind()) or os.path.exists(model_args.model_name_or_path):
+    if (not use_modelscope() and not use_openmind()) or os.path.exists(
+        model_args.model_name_or_path
+    ):
         return model_args.model_name_or_path
 
     if use_modelscope():
         require_version("modelscope>=1.11.0", "To fix: pip install modelscope>=1.11.0")
         from modelscope import snapshot_download  # type: ignore
 
-        revision = "master" if model_args.model_revision == "main" else model_args.model_revision
+        revision = (
+            "master"
+            if model_args.model_revision == "main"
+            else model_args.model_revision
+        )
         return snapshot_download(
             model_args.model_name_or_path,
             revision=revision,

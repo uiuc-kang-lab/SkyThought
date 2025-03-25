@@ -36,7 +36,9 @@ if TYPE_CHECKING:
     from .template import Template
 
 
-def prepare_4d_attention_mask(attention_mask_with_indices: "torch.Tensor", dtype: "torch.dtype") -> "torch.Tensor":
+def prepare_4d_attention_mask(
+    attention_mask_with_indices: "torch.Tensor", dtype: "torch.dtype"
+) -> "torch.Tensor":
     r"""
     Expands the attention mask with indices from (batch_size, seq_len) to (batch_size, 1, seq_len, seq_len),
     while handles packed sequences and transforms the mask to lower triangular form to prevent future peeking.
@@ -63,15 +65,21 @@ def prepare_4d_attention_mask(attention_mask_with_indices: "torch.Tensor", dtype
     """
     bsz, seq_len = attention_mask_with_indices.size()
     min_dtype = torch.finfo(dtype).min
-    expanded_mask = attention_mask_with_indices[:, None, None, :].expand(bsz, 1, seq_len, seq_len)
+    expanded_mask = attention_mask_with_indices[:, None, None, :].expand(
+        bsz, 1, seq_len, seq_len
+    )
     # Create a binary mask from the original mask where zeros remain zeros and all other values are set to one
     padding_mask = torch.where(expanded_mask != 0, 1, 0)
     # Create a block-diagonal mask.
-    attention_mask_4d = torch.eq(expanded_mask, expanded_mask.transpose(-1, -2)).int() * padding_mask
+    attention_mask_4d = (
+        torch.eq(expanded_mask, expanded_mask.transpose(-1, -2)).int() * padding_mask
+    )
     # Use the lower triangular mask to zero out the upper triangular part
     attention_mask_4d *= torch.tril(torch.ones((seq_len, seq_len), dtype=torch.long))
     # Invert the attention mask.
-    attention_mask_4d = torch.where(attention_mask_4d != 0, torch.tensor(0, dtype=dtype), min_dtype)
+    attention_mask_4d = torch.where(
+        attention_mask_4d != 0, torch.tensor(0, dtype=dtype), min_dtype
+    )
     return attention_mask_4d
 
 
@@ -91,7 +99,13 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
             raise ValueError("Template is required for MultiModalDataCollator.")
 
     def __call__(self, features: Sequence[Dict[str, Any]]) -> Dict[str, "torch.Tensor"]:
-        batch_images, batch_videos, batch_imglens, batch_vidlens, batch_input_ids = [], [], [], [], []
+        batch_images, batch_videos, batch_imglens, batch_vidlens, batch_input_ids = (
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
         for feature in features:
             images = feature.pop("images", None) or []
             videos = feature.pop("videos", None) or []
@@ -101,19 +115,34 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
             batch_vidlens.append(len(videos))
             batch_input_ids.append(feature["input_ids"])
 
-        if self.processor is not None and sum(batch_imglens) == 0:  # avoid process hanging in zero3/fsdp case
+        if (
+            self.processor is not None and sum(batch_imglens) == 0
+        ):  # avoid process hanging in zero3/fsdp case
             fake_messages = [{"role": "user", "content": IMAGE_PLACEHOLDER}]
             fake_images = [Image.new("RGB", (64, 64), (255, 255, 255))]
-            fake_messages = self.template.mm_plugin.process_messages(fake_messages, fake_images, [], self.processor)
-            fake_input_ids = self.processor.tokenizer.encode(fake_messages[0]["content"], add_special_tokens=False)
+            fake_messages = self.template.mm_plugin.process_messages(
+                fake_messages, fake_images, [], self.processor
+            )
+            fake_input_ids = self.processor.tokenizer.encode(
+                fake_messages[0]["content"], add_special_tokens=False
+            )
             features[0]["input_ids"] = features[0]["input_ids"] + fake_input_ids
-            features[0]["attention_mask"] = features[0]["attention_mask"] + [0] * len(fake_input_ids)
-            features[0]["labels"] = features[0]["labels"] + [IGNORE_INDEX] * len(fake_input_ids)
+            features[0]["attention_mask"] = features[0]["attention_mask"] + [0] * len(
+                fake_input_ids
+            )
+            features[0]["labels"] = features[0]["labels"] + [IGNORE_INDEX] * len(
+                fake_input_ids
+            )
             batch_images = fake_images
             batch_input_ids[0] = features[0]["input_ids"]
 
         mm_inputs = self.template.mm_plugin.get_mm_inputs(
-            batch_images, batch_videos, batch_imglens, batch_vidlens, batch_input_ids, self.processor
+            batch_images,
+            batch_videos,
+            batch_imglens,
+            batch_vidlens,
+            batch_input_ids,
+            self.processor,
         )
         if "token_type_ids" in mm_inputs:
             token_type_ids = mm_inputs.pop("token_type_ids")
@@ -121,15 +150,21 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
                 feature["token_type_ids"] = token_type_ids[i]
 
         features: Dict[str, "torch.Tensor"] = super().__call__(features)
-        if "cross_attention_mask" in mm_inputs:  # for mllama inputs when pad_to_multiple_of is enabled
+        if (
+            "cross_attention_mask" in mm_inputs
+        ):  # for mllama inputs when pad_to_multiple_of is enabled
             cross_attention_mask = mm_inputs.pop("cross_attention_mask")
             seq_len = features["input_ids"].size(1)
             orig_len = cross_attention_mask.size(1)
-            mm_inputs["cross_attention_mask"] = F.pad(cross_attention_mask, (0, 0, 0, 0, 0, seq_len - orig_len))
+            mm_inputs["cross_attention_mask"] = F.pad(
+                cross_attention_mask, (0, 0, 0, 0, 0, seq_len - orig_len)
+            )
 
         features.update(mm_inputs)
         if isinstance(features.get("pixel_values"), list):  # for pixtral inputs
-            features = features.data  # use default_collate() instead of BatchEncoding.to()
+            features = (
+                features.data
+            )  # use default_collate() instead of BatchEncoding.to()
 
         return features
 
@@ -147,7 +182,9 @@ class SFTDataCollatorWith4DAttentionMask(MultiModalDataCollatorForSeq2Seq):
     def __call__(self, features: Sequence[Dict[str, Any]]) -> Dict[str, "torch.Tensor"]:
         features = super().__call__(features)
         if self.block_diag_attn and self.attn_implementation != "flash_attention_2":
-            features["attention_mask"] = prepare_4d_attention_mask(features["attention_mask"], self.compute_dtype)
+            features["attention_mask"] = prepare_4d_attention_mask(
+                features["attention_mask"], self.compute_dtype
+            )
 
         return features
 

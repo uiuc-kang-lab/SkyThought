@@ -60,21 +60,37 @@ if TYPE_CHECKING:
 
 class Evaluator:
     def __init__(self, args: Optional[Dict[str, Any]] = None) -> None:
-        self.model_args, self.data_args, self.eval_args, finetuning_args = get_eval_args(args)
+        (
+            self.model_args,
+            self.data_args,
+            self.eval_args,
+            finetuning_args,
+        ) = get_eval_args(args)
         self.tokenizer = load_tokenizer(self.model_args)["tokenizer"]
-        self.tokenizer.padding_side = "right"  # avoid overflow issue in batched inference for llama2
+        self.tokenizer.padding_side = (
+            "right"  # avoid overflow issue in batched inference for llama2
+        )
         self.template = get_template_and_fix_tokenizer(self.tokenizer, self.data_args)
         self.model = load_model(self.tokenizer, self.model_args, finetuning_args)
         self.eval_template = get_eval_template(self.eval_args.lang)
-        self.choice_inputs = [self.tokenizer.encode(ch, add_special_tokens=False)[-1] for ch in CHOICES]
+        self.choice_inputs = [
+            self.tokenizer.encode(ch, add_special_tokens=False)[-1] for ch in CHOICES
+        ]
 
     @torch.inference_mode()
     def batch_inference(self, batch_input: Dict[str, "torch.Tensor"]) -> List[str]:
         logits = self.model(**batch_input).logits
         lengths = torch.sum(batch_input["attention_mask"], dim=-1)
-        word_probs = torch.stack([logits[i, lengths[i] - 1] for i in range(len(lengths))], dim=0)
-        choice_probs = torch.nn.functional.softmax(word_probs[:, self.choice_inputs], dim=-1).detach()
-        return [chr(ord("A") + offset.item()) for offset in torch.argmax(choice_probs, dim=-1)]
+        word_probs = torch.stack(
+            [logits[i, lengths[i] - 1] for i in range(len(lengths))], dim=0
+        )
+        choice_probs = torch.nn.functional.softmax(
+            word_probs[:, self.choice_inputs], dim=-1
+        ).detach()
+        return [
+            chr(ord("A") + offset.item())
+            for offset in torch.argmax(choice_probs, dim=-1)
+        ]
 
     def eval(self) -> None:
         eval_task = self.eval_args.task.split("_")[0]
@@ -104,9 +120,16 @@ class Evaluator:
             )
             pbar.set_postfix_str(categorys[subject]["name"])
             inputs, outputs, labels = [], [], []
-            for i in trange(len(dataset[eval_split]), desc="Formatting batches", position=1, leave=False):
+            for i in trange(
+                len(dataset[eval_split]),
+                desc="Formatting batches",
+                position=1,
+                leave=False,
+            ):
                 support_set = (
-                    dataset["train"].shuffle().select(range(min(self.eval_args.n_shot, len(dataset["train"]))))
+                    dataset["train"]
+                    .shuffle()
+                    .select(range(min(self.eval_args.n_shot, len(dataset["train"]))))
                 )
                 messages = self.eval_template.format_example(
                     target_data=dataset[eval_split][i],
@@ -114,29 +137,48 @@ class Evaluator:
                     subject_name=categorys[subject]["name"],
                 )
 
-                input_ids, _ = self.template.encode_oneturn(tokenizer=self.tokenizer, messages=messages)
-                inputs.append({"input_ids": input_ids, "attention_mask": [1] * len(input_ids)})
+                input_ids, _ = self.template.encode_oneturn(
+                    tokenizer=self.tokenizer, messages=messages
+                )
+                inputs.append(
+                    {"input_ids": input_ids, "attention_mask": [1] * len(input_ids)}
+                )
                 labels.append(messages[-1]["content"])
 
             for i in trange(
-                0, len(inputs), self.eval_args.batch_size, desc="Predicting batches", position=1, leave=False
+                0,
+                len(inputs),
+                self.eval_args.batch_size,
+                desc="Predicting batches",
+                position=1,
+                leave=False,
             ):
                 batch_input = self.tokenizer.pad(
-                    inputs[i : i + self.eval_args.batch_size], return_attention_mask=True, return_tensors="pt"
+                    inputs[i : i + self.eval_args.batch_size],
+                    return_attention_mask=True,
+                    return_tensors="pt",
                 ).to(self.model.device)
                 preds = self.batch_inference(batch_input)
                 outputs += preds
 
             corrects = np.array(outputs) == np.array(labels)
             category_name = categorys[subject]["category"]
-            category_corrects[category_name] = np.concatenate([category_corrects[category_name], corrects], axis=0)
-            category_corrects["Average"] = np.concatenate([category_corrects["Average"], corrects], axis=0)
+            category_corrects[category_name] = np.concatenate(
+                [category_corrects[category_name], corrects], axis=0
+            )
+            category_corrects["Average"] = np.concatenate(
+                [category_corrects["Average"], corrects], axis=0
+            )
             results[subject] = {str(i): outputs[i] for i in range(len(outputs))}
 
         pbar.close()
         self._save_results(category_corrects, results)
 
-    def _save_results(self, category_corrects: Dict[str, "NDArray"], results: Dict[str, Dict[int, str]]) -> None:
+    def _save_results(
+        self,
+        category_corrects: Dict[str, "NDArray"],
+        results: Dict[str, Dict[int, str]],
+    ) -> None:
         score_info = "\n".join(
             [
                 f"{category_name:>15}: {100 * np.mean(category_correct):.2f}"
@@ -147,10 +189,20 @@ class Evaluator:
         print(score_info)
         if self.eval_args.save_dir is not None:
             os.makedirs(self.eval_args.save_dir, exist_ok=False)
-            with open(os.path.join(self.eval_args.save_dir, "results.json"), "w", encoding="utf-8", newline="\n") as f:
+            with open(
+                os.path.join(self.eval_args.save_dir, "results.json"),
+                "w",
+                encoding="utf-8",
+                newline="\n",
+            ) as f:
                 json.dump(results, f, indent=2)
 
-            with open(os.path.join(self.eval_args.save_dir, "results.log"), "w", encoding="utf-8", newline="\n") as f:
+            with open(
+                os.path.join(self.eval_args.save_dir, "results.log"),
+                "w",
+                encoding="utf-8",
+                newline="\n",
+            ) as f:
                 f.write(score_info)
 
 

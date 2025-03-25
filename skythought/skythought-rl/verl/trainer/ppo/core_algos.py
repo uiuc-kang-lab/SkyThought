@@ -25,6 +25,7 @@ from collections import defaultdict
 import verl
 import verl.utils.torch_functional as verl_F
 
+
 class AdaptiveKLController:
     """
     Adaptive KL controller described in the paper:
@@ -54,20 +55,30 @@ class FixedKLController:
 
 
 def get_kl_controller(config):
-    if config.critic.kl_ctrl.type == 'fixed':
+    if config.critic.kl_ctrl.type == "fixed":
         kl_ctrl = FixedKLController(kl_coef=config.critic.kl_ctrl.kl_coef)
-    elif config.critic.kl_ctrl.type == 'adaptive':
-        assert config.kl_ctrl.horizon > 0, f'horizon must be larger than 0. Got {config.critic.kl_ctrl.horizon}'
-        kl_ctrl = AdaptiveKLController(init_kl_coef=config.critic.kl_ctrl.kl_coef,
-                                       target_kl=config.critic.kl_ctrl.target_kl,
-                                       horizon=config.critic.kl_ctrl.horizon)
+    elif config.critic.kl_ctrl.type == "adaptive":
+        assert (
+            config.kl_ctrl.horizon > 0
+        ), f"horizon must be larger than 0. Got {config.critic.kl_ctrl.horizon}"
+        kl_ctrl = AdaptiveKLController(
+            init_kl_coef=config.critic.kl_ctrl.kl_coef,
+            target_kl=config.critic.kl_ctrl.target_kl,
+            horizon=config.critic.kl_ctrl.horizon,
+        )
     else:
-        raise ValueError('Unknown kl_ctrl type')
+        raise ValueError("Unknown kl_ctrl type")
 
     return kl_ctrl
-    
-def compute_gae_advantage_return(token_level_rewards: torch.Tensor, values: torch.Tensor, eos_mask: torch.Tensor,
-                                 gamma: torch.Tensor, lam: torch.Tensor):
+
+
+def compute_gae_advantage_return(
+    token_level_rewards: torch.Tensor,
+    values: torch.Tensor,
+    eos_mask: torch.Tensor,
+    gamma: torch.Tensor,
+    lam: torch.Tensor,
+):
     """Adapted from https://github.com/huggingface/trl/blob/main/trl/trainer/ppo_trainer.py
 
     Args:
@@ -105,59 +116,88 @@ def compute_gae_advantage_return(token_level_rewards: torch.Tensor, values: torc
         advantages = verl_F.masked_whiten(advantages, eos_mask)
     return advantages, returns
 
-def compute_reinforce_pp_returns(token_level_rewards: torch.Tensor, eos_mask: torch.Tensor,
-                                 gamma: torch.Tensor):
+
+def compute_reinforce_pp_returns(
+    token_level_rewards: torch.Tensor, eos_mask: torch.Tensor, gamma: torch.Tensor
+):
     with torch.no_grad():
         gen_len = token_level_rewards.shape[-1]
         returns = torch.zeros_like(token_level_rewards)
-        cumulative_return = torch.zeros(token_level_rewards.shape[0], device=token_level_rewards.device)
+        cumulative_return = torch.zeros(
+            token_level_rewards.shape[0], device=token_level_rewards.device
+        )
 
         for t in reversed(range(gen_len)):
             cumulative_return = token_level_rewards[:, t] + gamma * cumulative_return
             returns[:, t] = cumulative_return
-            
+
         returns = verl_F.masked_whiten(returns, eos_mask)
     return returns.clone(), returns
-    
-def compute_rloo_returns(data:verl.DataProto, eos_mask:torch.Tensor, n_samples, config):
+
+
+def compute_rloo_returns(
+    data: verl.DataProto, eos_mask: torch.Tensor, n_samples, config
+):
     # calculate rloo reward on different reward sources, and sum again
     with torch.no_grad():
         # reward = torch.zeros_like(data.batch['responses'], dtype=torch.float32)
-        advantages = torch.zeros_like(data.batch['responses'],dtype=torch.float32)
-        discount_rewards=[]
-        for k,v in data.batch.items():
-            if k == 'rm_scores':
+        advantages = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
+        discount_rewards = []
+        for k, v in data.batch.items():
+            if k == "rm_scores":
                 gamma = config.algorithm.adv_params.reward_model_gamma
                 reward_mask = eos_mask.bool()
-            elif k == 'gt_scores':
+            elif k == "gt_scores":
                 gamma = config.algorithm.adv_params.verifier_gamma
-                prompt_ids = data.batch['prompts']
+                prompt_ids = data.batch["prompts"]
                 prompt_length = prompt_ids.shape[-1]
-                valid_response_length = data.batch['attention_mask'][:, prompt_length:].sum(-1)
+                valid_response_length = data.batch["attention_mask"][
+                    :, prompt_length:
+                ].sum(-1)
                 reward_mask = torch.zeros_like(v, dtype=torch.bool)
-                reward_mask[torch.arange(0, valid_response_length.shape[0], dtype=torch.long, device=valid_response_length.device), valid_response_length-1]=True
-            else: # not a reward tensor
+                reward_mask[
+                    torch.arange(
+                        0,
+                        valid_response_length.shape[0],
+                        dtype=torch.long,
+                        device=valid_response_length.device,
+                    ),
+                    valid_response_length - 1,
+                ] = True
+            else:  # not a reward tensor
                 continue
             reward_tensor = v.clone()
-            reward_tensor[~reward_mask]=0
+            reward_tensor[~reward_mask] = 0
             for start_pos in range(0, reward_tensor.shape[0], n_samples):
                 cur_rewards_mean = torch.cat(
-                    [ reward_tensor[pos:pos + 1][ reward_mask[pos:pos + 1] ].mean(dim=0, keepdim=True) for pos
-                     in range(start_pos, start_pos + n_samples) ], dim=0)
+                    [
+                        reward_tensor[pos : pos + 1][reward_mask[pos : pos + 1]].mean(
+                            dim=0, keepdim=True
+                        )
+                        for pos in range(start_pos, start_pos + n_samples)
+                    ],
+                    dim=0,
+                )
                 cur_rewards_sum = cur_rewards_mean.sum()
                 cur_reward_baseline = cur_rewards_sum / (n_samples - 1)
-                reward_tensor[start_pos:start_pos + n_samples][
-                    reward_mask[start_pos:start_pos + n_samples]] = \
-                    reward_tensor[start_pos:start_pos + n_samples][
-                        reward_mask[start_pos:start_pos + n_samples]] * (
-                                n_samples / (n_samples - 1)) - cur_reward_baseline
+                reward_tensor[start_pos : start_pos + n_samples][
+                    reward_mask[start_pos : start_pos + n_samples]
+                ] = (
+                    reward_tensor[start_pos : start_pos + n_samples][
+                        reward_mask[start_pos : start_pos + n_samples]
+                    ]
+                    * (n_samples / (n_samples - 1))
+                    - cur_reward_baseline
+                )
 
             discount_reward = torch.zeros_like(reward_tensor)
             for step in reversed(range(reward_tensor.shape[1])):
-                if step == reward_tensor.shape[1]-1:
-                    discount_reward[:,step] = reward_tensor[:, step]
+                if step == reward_tensor.shape[1] - 1:
+                    discount_reward[:, step] = reward_tensor[:, step]
                 else:
-                    discount_reward[:,step] = reward_tensor[:, step] + gamma * discount_reward[:, step+1]
+                    discount_reward[:, step] = (
+                        reward_tensor[:, step] + gamma * discount_reward[:, step + 1]
+                    )
             discount_rewards.append(discount_reward)
         # return is the sum of discounted reward
         returns = sum(discount_rewards)
@@ -166,20 +206,23 @@ def compute_rloo_returns(data:verl.DataProto, eos_mask:torch.Tensor, n_samples, 
         advantages = verl_F.masked_whiten(advantages, eos_mask)
     return advantages, returns
 
+
 # NOTE(sgm): this implementation only consider outcome supervision, where the reward is a scalar.
-def compute_grpo_outcome_advantage(token_level_rewards: torch.Tensor,
-                                   eos_mask: torch.Tensor,
-                                   index: torch.Tensor,
-                                   epsilon: float = 1e-6):
+def compute_grpo_outcome_advantage(
+    token_level_rewards: torch.Tensor,
+    eos_mask: torch.Tensor,
+    index: torch.Tensor,
+    epsilon: float = 1e-6,
+):
     """
-    Compute advantage for GRPO, operating only on Outcome reward 
+    Compute advantage for GRPO, operating only on Outcome reward
     (with only one scalar reward for each response).
     Args:
         token_level_rewards: `(torch.Tensor)`
             shape: (bs, response_length)
         eos_mask: `(torch.Tensor)`
             shape: (bs, response_length)
-    
+
     Returns:
         advantages: `(torch.Tensor)`
             shape: (bs, response_length)
@@ -289,15 +332,19 @@ def compute_value_loss(vpreds, returns, values, eos_mask, cliprange_value):
             The ratio of vf being clipped
 
     """
-    vpredclipped = verl_F.clip_by_value(vpreds, values - cliprange_value, values + cliprange_value)
-    vf_losses1 = (vpreds - returns)**2
-    vf_losses2 = (vpredclipped - returns)**2
+    vpredclipped = verl_F.clip_by_value(
+        vpreds, values - cliprange_value, values + cliprange_value
+    )
+    vf_losses1 = (vpreds - returns) ** 2
+    vf_losses2 = (vpredclipped - returns) ** 2
     vf_loss = 0.5 * verl_F.masked_mean(torch.max(vf_losses1, vf_losses2), eos_mask)
     vf_clipfrac = verl_F.masked_mean(torch.gt(vf_losses2, vf_losses1).float(), eos_mask)
     return vf_loss, vf_clipfrac
 
 
-def kl_penalty(logprob: torch.FloatTensor, ref_logprob: torch.FloatTensor, kl_penalty) -> torch.FloatTensor:
+def kl_penalty(
+    logprob: torch.FloatTensor, ref_logprob: torch.FloatTensor, kl_penalty
+) -> torch.FloatTensor:
     """Compute KL divergence given logprob and ref_logprob.
     Copied from https://github.com/huggingface/trl/blob/main/trl/trainer/ppo_trainer.py#L1104
 
@@ -319,7 +366,7 @@ def kl_penalty(logprob: torch.FloatTensor, ref_logprob: torch.FloatTensor, kl_pe
 
     # J. Schulman. Approximating kl divergence, 2020.
     # # URL http://joschu.net/blog/kl-approx.html.
-    if kl_penalty == 'low_var_kl':
+    if kl_penalty == "low_var_kl":
         kl = ref_logprob - logprob
         ratio = torch.exp(kl)
         kld = (ratio - kl - 1).contiguous()

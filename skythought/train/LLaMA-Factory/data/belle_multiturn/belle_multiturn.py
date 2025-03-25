@@ -27,15 +27,30 @@ class BelleMultiturn(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         features = datasets.Features(
-            {"conversations": [{"from": datasets.Value("string"), "value": datasets.Value("string")}]}
+            {
+                "conversations": [
+                    {
+                        "from": datasets.Value("string"),
+                        "value": datasets.Value("string"),
+                    }
+                ]
+            }
         )
         return datasets.DatasetInfo(
-            description=_DESCRIPTION, features=features, homepage=_HOMEPAGE, license=_LICENSE, citation=_CITATION
+            description=_DESCRIPTION,
+            features=features,
+            homepage=_HOMEPAGE,
+            license=_LICENSE,
+            citation=_CITATION,
         )
 
     def _split_generators(self, dl_manager: datasets.DownloadManager):
         file_path = dl_manager.download(_URL)
-        return [datasets.SplitGenerator(name=datasets.Split.TRAIN, gen_kwargs={"filepath": file_path})]
+        return [
+            datasets.SplitGenerator(
+                name=datasets.Split.TRAIN, gen_kwargs={"filepath": file_path}
+            )
+        ]
 
     def _generate_examples(self, filepath: str):
         with open(filepath, encoding="utf-8") as f:

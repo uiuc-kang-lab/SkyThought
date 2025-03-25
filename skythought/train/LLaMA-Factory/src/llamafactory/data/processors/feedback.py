@@ -57,21 +57,35 @@ def _encode_feedback_example(
         kl_messages = prompt + [kl_response[1]]
 
     messages = template.mm_plugin.process_messages(messages, images, videos, processor)
-    kl_messages = template.mm_plugin.process_messages(kl_messages, images, videos, processor)
-    prompt_ids, response_ids = template.encode_oneturn(tokenizer, messages, system, tools)
-    kl_prompt_ids, kl_response_ids = template.encode_oneturn(tokenizer, kl_messages, system, tools)
+    kl_messages = template.mm_plugin.process_messages(
+        kl_messages, images, videos, processor
+    )
+    prompt_ids, response_ids = template.encode_oneturn(
+        tokenizer, messages, system, tools
+    )
+    kl_prompt_ids, kl_response_ids = template.encode_oneturn(
+        tokenizer, kl_messages, system, tools
+    )
 
     if template.efficient_eos:
         response_ids += [tokenizer.eos_token_id]
         kl_response_ids += [tokenizer.eos_token_id]
 
-    prompt_ids, _ = template.mm_plugin.process_token_ids(prompt_ids, None, images, videos, tokenizer, processor)
-    kl_prompt_ids, _ = template.mm_plugin.process_token_ids(kl_prompt_ids, None, images, videos, tokenizer, processor)
+    prompt_ids, _ = template.mm_plugin.process_token_ids(
+        prompt_ids, None, images, videos, tokenizer, processor
+    )
+    kl_prompt_ids, _ = template.mm_plugin.process_token_ids(
+        kl_prompt_ids, None, images, videos, tokenizer, processor
+    )
 
-    source_len, target_len = infer_seqlen(len(prompt_ids), len(response_ids), cutoff_len)
+    source_len, target_len = infer_seqlen(
+        len(prompt_ids), len(response_ids), cutoff_len
+    )
     prompt_ids = prompt_ids[:source_len]
     response_ids = response_ids[:target_len]
-    kl_source_len, kl_target_len = infer_seqlen(len(kl_prompt_ids), len(kl_response_ids), cutoff_len)
+    kl_source_len, kl_target_len = infer_seqlen(
+        len(kl_prompt_ids), len(kl_response_ids), cutoff_len
+    )
     kl_prompt_ids = kl_prompt_ids[:kl_source_len]
     kl_response_ids = kl_response_ids[:kl_target_len]
 
@@ -95,7 +109,9 @@ def preprocess_feedback_dataset(
     for i in range(len(examples["_prompt"])):
         if len(examples["_prompt"][i]) % 2 != 1 or len(examples["_response"][i]) < 2:
             logger.warning_rank0(
-                "Dropped invalid example: {}".format(examples["_prompt"][i] + examples["_response"][i])
+                "Dropped invalid example: {}".format(
+                    examples["_prompt"][i] + examples["_response"][i]
+                )
             )
             continue
 

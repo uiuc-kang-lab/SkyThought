@@ -17,7 +17,11 @@
 
 from typing import TYPE_CHECKING, List, Optional
 
-from ...data import MultiModalDataCollatorForSeq2Seq, get_dataset, get_template_and_fix_tokenizer
+from ...data import (
+    MultiModalDataCollatorForSeq2Seq,
+    get_dataset,
+    get_template_and_fix_tokenizer,
+)
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..callbacks import fix_valuehead_checkpoint
@@ -28,7 +32,12 @@ from .trainer import CustomPPOTrainer
 if TYPE_CHECKING:
     from transformers import Seq2SeqTrainingArguments, TrainerCallback
 
-    from ...hparams import DataArguments, FinetuningArguments, GeneratingArguments, ModelArguments
+    from ...hparams import (
+        DataArguments,
+        FinetuningArguments,
+        GeneratingArguments,
+        ModelArguments,
+    )
 
 
 def run_ppo(
@@ -42,11 +51,23 @@ def run_ppo(
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
-    dataset_module = get_dataset(template, model_args, data_args, training_args, stage="ppo", **tokenizer_module)
-    model = load_model(tokenizer, model_args, finetuning_args, training_args.do_train, add_valuehead=True)
+    dataset_module = get_dataset(
+        template, model_args, data_args, training_args, stage="ppo", **tokenizer_module
+    )
+    model = load_model(
+        tokenizer,
+        model_args,
+        finetuning_args,
+        training_args.do_train,
+        add_valuehead=True,
+    )
 
-    tokenizer.padding_side = "left"  # use left-padding in generation while using right-padding in training
-    data_collator = MultiModalDataCollatorForSeq2Seq(template=template, **tokenizer_module)
+    tokenizer.padding_side = (
+        "left"  # use left-padding in generation while using right-padding in training
+    )
+    data_collator = MultiModalDataCollatorForSeq2Seq(
+        template=template, **tokenizer_module
+    )
 
     # Create reference model and reward model
     ref_model = create_ref_model(model_args, finetuning_args, add_valuehead=True)
@@ -69,10 +90,14 @@ def run_ppo(
 
     # Training
     if training_args.do_train:
-        ppo_trainer.ppo_train(resume_from_checkpoint=training_args.resume_from_checkpoint)
+        ppo_trainer.ppo_train(
+            resume_from_checkpoint=training_args.resume_from_checkpoint
+        )
         ppo_trainer.save_model()
         if training_args.should_save:
-            fix_valuehead_checkpoint(model, training_args.output_dir, training_args.save_safetensors)
+            fix_valuehead_checkpoint(
+                model, training_args.output_dir, training_args.save_safetensors
+            )
 
         ppo_trainer.save_state()  # must be called after save_model to have a folder
         if ppo_trainer.is_world_process_zero() and finetuning_args.plot_loss:

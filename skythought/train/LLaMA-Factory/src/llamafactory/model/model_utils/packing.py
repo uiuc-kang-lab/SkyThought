@@ -84,7 +84,9 @@ def get_seqlens_in_batch(attention_mask: "torch.Tensor") -> "torch.Tensor":
     return seqlens
 
 
-def get_unpad_data(attention_mask: "torch.Tensor") -> Tuple["torch.Tensor", "torch.Tensor", int]:
+def get_unpad_data(
+    attention_mask: "torch.Tensor",
+) -> Tuple["torch.Tensor", "torch.Tensor", int]:
     r"""
     Prepares the indices and seqlens for flash attn varlen function.
 
@@ -114,7 +116,10 @@ def get_unpad_data(attention_mask: "torch.Tensor") -> Tuple["torch.Tensor", "tor
 
 
 def _patch_for_block_diag_attn(model_type: str) -> None:
-    require_version("transformers>=4.41.2,<=4.46.1", "To fix: pip install transformers>=4.41.2,<=4.46.1")
+    require_version(
+        "transformers>=4.41.2,<=4.46.1",
+        "To fix: pip install transformers>=4.41.2,<=4.46.1",
+    )
     if is_transformers_version_greater_than("4.43.0"):
         import transformers.modeling_flash_attention_utils
 
@@ -142,16 +147,22 @@ def _patch_for_block_diag_attn(model_type: str) -> None:
     elif model_type == "qwen2":
         transformers.models.qwen2.modeling_qwen2._get_unpad_data = get_unpad_data
     elif model_type == "starcoder2":
-        transformers.models.starcoder2.modeling_starcoder2._get_unpad_data = get_unpad_data
+        transformers.models.starcoder2.modeling_starcoder2._get_unpad_data = (
+            get_unpad_data
+        )
 
 
-def configure_packing(config: "PretrainedConfig", model_args: "ModelArguments", is_trainable: bool) -> None:
+def configure_packing(
+    config: "PretrainedConfig", model_args: "ModelArguments", is_trainable: bool
+) -> None:
     if not is_trainable or not model_args.block_diag_attn:
         return
 
     model_type = getattr(config, "model_type", None)
     if model_type in SUPPORTED_CLASS_FOR_BLOCK_DIAG_ATTN:
         _patch_for_block_diag_attn(model_type)
-        logger.info_rank0("Using block diagonal attention for sequence packing without cross-attention.")
+        logger.info_rank0(
+            "Using block diagonal attention for sequence packing without cross-attention."
+        )
     else:
         raise ValueError("Current model does not support block diagonal attention.")

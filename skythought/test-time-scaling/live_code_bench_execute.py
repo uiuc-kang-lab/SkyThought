@@ -19,7 +19,8 @@ import time
 import dspy
 from util import post_process_code
 
-fast_check_global_time_out = 150 # In case some problems have too many test cases - giving roughly 20 time out chances.
+fast_check_global_time_out = 150  # In case some problems have too many test cases - giving roughly 20 time out chances.
+
 
 def prepare_test_input_output_functional(test_case, is_extracted):
     if not is_extracted:
@@ -95,6 +96,7 @@ def prepare_test_input_output_functional(test_case, is_extracted):
             expected_output = expected_output.strip()
         return inputs, expected_output
 
+
 def prepare_test_input_output_std(test_case):
     test_input = test_case["input"]
     test_output = test_case["output"].strip()
@@ -103,6 +105,7 @@ def prepare_test_input_output_std(test_case):
             : test_output.rfind("-")
         ].rstrip()  # Remove '-' if present and trailing
     return test_input, test_output
+
 
 def run_test_func(completion, is_extracted, test_input, test_output):
     # print(f"inside: {completion}")
@@ -179,6 +182,7 @@ def run_test_func(completion, is_extracted, test_input, test_output):
 
         return True, result_output
 
+
 def run_test_std(completion, test_input, test_output):
     sys.stdin = StringIO(test_input)
 
@@ -188,29 +192,40 @@ def run_test_std(completion, test_input, test_output):
     if '__name__ == "__main__"' in completion:
         # Simulate that the code is being run as the main script
         completion = f'__name__ = "__main__"\n' + completion
-    
+
     namespace = {}
     exec(completion, namespace)
 
     output_value = output.getvalue().strip()
     return output_value == test_output, output_value
 
+
 def unsafe_lcb_run_timeout_tests(timeout_input_list, completion, timeout, is_stdin):
     manager = multiprocessing.Manager()
     result = manager.list()
-    p = multiprocessing.Process(target=run_single_timeout_test_list, args=(timeout_input_list, completion, timeout, is_stdin, result))
+    p = multiprocessing.Process(
+        target=run_single_timeout_test_list,
+        args=(timeout_input_list, completion, timeout, is_stdin, result),
+    )
     p.start()
-    p.join(timeout = timeout * len(timeout_input_list) + 3) # TODO Alex: what should be the timeout here?
+    p.join(
+        timeout=timeout * len(timeout_input_list) + 3
+    )  # TODO Alex: what should be the timeout here?
     if p.is_alive():
         p.kill()
-    
+
     for i in range(len(timeout_input_list) - len(result)):
-        result.append((False, f"Time out!.", "Error: Time out!", float("inf")))   
-    
-    assert len(result) == len(timeout_input_list), f"Expected result list for timeout tests to have length {len(timeout_input_list)}, but got length {len(result)}"
+        result.append((False, f"Time out!.", "Error: Time out!", float("inf")))
+
+    assert len(result) == len(
+        timeout_input_list
+    ), f"Expected result list for timeout tests to have length {len(timeout_input_list)}, but got length {len(result)}"
     return result
 
-def run_single_timeout_test_list(timeout_input_list, completion, timeout, is_stdin, result_list):
+
+def run_single_timeout_test_list(
+    timeout_input_list, completion, timeout, is_stdin, result_list
+):
     time_elapsed = float("inf")
     test_type = "stdin" if is_stdin else "functional"
     reliability_guard()
@@ -221,14 +236,23 @@ def run_single_timeout_test_list(timeout_input_list, completion, timeout, is_std
             time_start = time.time()
             if test_type == "functional":
                 passed, output_value = run_test_func(
-                    completion, False, timeout_input, "This is just a place holder" ## There is no need to actually check the output, because the purpose of this test is to check whether it is going to timeout
+                    completion,
+                    False,
+                    timeout_input,
+                    "This is just a place holder",  ## There is no need to actually check the output, because the purpose of this test is to check whether it is going to timeout
                 )
             else:
-                passed, output_value = run_test_std(completion, timeout_input, "This is just a place holder")
-             
-            passed = True if not isinstance(output_value, str) else not output_value.startswith("Error:") ## only check for error if output is string
+                passed, output_value = run_test_std(
+                    completion, timeout_input, "This is just a place holder"
+                )
+
+            passed = (
+                True
+                if not isinstance(output_value, str)
+                else not output_value.startswith("Error:")
+            )  ## only check for error if output is string
             time_elapsed = time.time() - time_start
-        
+
         except Exception as e:
             print(f"Caught a generic exception: {e}")
             passed = False
@@ -236,29 +260,40 @@ def run_single_timeout_test_list(timeout_input_list, completion, timeout, is_std
             output_value = f"Error: {e}."
         if output_error == "":
             output_error = f"For test input: {timeout_input}. Expected output is: PASSING IN TIME, your solution correctly passes this test with output {output_value}."
-        
+
         result_list.append((passed, output_error, output_value, time_elapsed))
 
-def unsafe_lcb_runTests(problem, completion, timeout, runtime_debug, is_extracted, fast_check):
+
+def unsafe_lcb_runTests(
+    problem, completion, timeout, runtime_debug, is_extracted, fast_check
+):
     test_cases = problem["test"]
     manager = multiprocessing.Manager()
     result = manager.list()
-    p = multiprocessing.Process(target=run_tests_for_one_example, args=(test_cases, completion, result, runtime_debug, is_extracted, fast_check))
+    p = multiprocessing.Process(
+        target=run_tests_for_one_example,
+        args=(test_cases, completion, result, runtime_debug, is_extracted, fast_check),
+    )
     p.start()
     # print(f"There are {len(test_cases)} test cases.")
     if fast_check:
-        p.join(fast_check_global_time_out) # TODO Alex: Check whether number of task cases is correct
+        p.join(
+            fast_check_global_time_out
+        )  # TODO Alex: Check whether number of task cases is correct
     else:
-        p.join(timeout = (timeout+1) * len(test_cases) + 5)
+        p.join(timeout=(timeout + 1) * len(test_cases) + 5)
     if p.is_alive():
         p.kill()
-    
+
     # if len(result) < len(test_cases): ## This is supposed to be the case where not all test passed in the given timeout
     for i in range(len(test_cases) - len(result)):
-        result.append((False, f"Time out!.", "Error: Time out!", float("inf")))            
+        result.append((False, f"Time out!.", "Error: Time out!", float("inf")))
     return result
 
-def run_tests_for_one_example(test_cases, completion, result_list, runtime_debug, is_extracted, fast_check):
+
+def run_tests_for_one_example(
+    test_cases, completion, result_list, runtime_debug, is_extracted, fast_check
+):
     time_elapsed = float("inf")
     test_type = test_cases[0]["testtype"]
     reliability_guard()
@@ -270,13 +305,20 @@ def run_tests_for_one_example(test_cases, completion, result_list, runtime_debug
         try:
             time_start = time.time()
             if test_type == "functional":
-                test_input, test_output = prepare_test_input_output_functional(test_case, is_extracted)
+                test_input, test_output = prepare_test_input_output_functional(
+                    test_case, is_extracted
+                )
                 passed, output_value = run_test_func(
-                    completion, is_extracted, copy.deepcopy(test_input), copy.deepcopy(test_output)
+                    completion,
+                    is_extracted,
+                    copy.deepcopy(test_input),
+                    copy.deepcopy(test_output),
                 )
             else:
                 test_input, test_output = prepare_test_input_output_std(test_case)
-                passed, output_value = run_test_std(completion, copy.deepcopy(test_input), copy.deepcopy(test_output))
+                passed, output_value = run_test_std(
+                    completion, copy.deepcopy(test_input), copy.deepcopy(test_output)
+                )
             # print(test_input, test_output, output_value)
             if not passed:
                 output_error = f"For test input: {test_input}. Expected output is: {test_output}, but got: {output_value}."
@@ -290,13 +332,14 @@ def run_tests_for_one_example(test_cases, completion, result_list, runtime_debug
             output_value = f"Error: {e}."
         if output_error == "":
             output_error = f"For test input: {test_input}. Expected output is: {test_output}, your solution correctly passes this test with output {output_value}."
-        
+
         result_list.append((passed, output_error, output_value, time_elapsed))
-        
+
         # If we only care the results - if it already failes, return.
         if fast_check:
             if not passed:
                 return
+
 
 def check_correctness(
     problem: Dict,
@@ -307,7 +350,7 @@ def check_correctness(
     verbose: bool = False,
     runtime_debug=False,
     is_extracted=False,
-    fast_check=False
+    fast_check=False,
 ) -> Dict:
     """
     Evaluates the functional correctness of a completion by running the test
@@ -317,11 +360,13 @@ def check_correctness(
         the results later even if execution finishes asynchronously.
     """
     # result = []
-    
+
     if verbose:
         print(problem["prompt"] + completion + "\n" + problem["test"])
     # print(f"Completition: {completion}")
-    result_list = eval_fun(problem, completion, timeout, runtime_debug, is_extracted, fast_check)
+    result_list = eval_fun(
+        problem, completion, timeout, runtime_debug, is_extracted, fast_check
+    )
     details = [r[0] for r in result_list]
     all_passed = all(details)
     maybe_error_messages = [r[1] for r in result_list]
@@ -331,7 +376,7 @@ def check_correctness(
     timeout_details = []
     for maybe_error in maybe_error_messages:
         timeout_details.append("Timed out!" in maybe_error)
-   
+
     result = ""
     if result_list and all_passed:
         result = "passed"
@@ -343,53 +388,76 @@ def check_correctness(
         task_id=problem["task_id"],
         passed=result == "passed",
         result=result,
-        details=details, # pass or not for each public test
-        timeout_details=timeout_details, # timeout or not for each public test
+        details=details,  # pass or not for each public test
+        timeout_details=timeout_details,  # timeout or not for each public test
         completion_id=completion_id,
         code=completion,
         maybe_error_messages=maybe_error_messages,
         maybe_output_values=maybe_output_values,
-        time_elapsed=time_elapsed
+        time_elapsed=time_elapsed,
     )
 
-def check_correctness_oracle(problem: Dict, preds: dspy.Prediction, timeout: float, is_extracted=False, debug_mode = False, fast_check=False) -> Dict:
+
+def check_correctness_oracle(
+    problem: Dict,
+    preds: dspy.Prediction,
+    timeout: float,
+    is_extracted=False,
+    debug_mode=False,
+    fast_check=False,
+) -> Dict:
     preds = preds.codes
     at_least_one_passed = False
     completion_and_pass = []
     codes = []
     for pred in preds:
         completion = pred.code
-        passed = check_correctness(problem, post_process_code(completion), timeout=timeout, is_extracted=is_extracted, fast_check=fast_check)["passed"]
+        passed = check_correctness(
+            problem,
+            post_process_code(completion),
+            timeout=timeout,
+            is_extracted=is_extracted,
+            fast_check=fast_check,
+        )["passed"]
         if passed:
             at_least_one_passed = True
         completion_and_pass.append(passed)
-        codes.append(completion)    
+        codes.append(completion)
     return dict(
         task_id=problem["task_id"],
-        passed= at_least_one_passed,
-        completion_and_pass = completion_and_pass,
-        codes = codes
+        passed=at_least_one_passed,
+        completion_and_pass=completion_and_pass,
+        codes=codes,
     )
 
+
 def post_process_timeout_tests_stdin(tests, r):
-    if isinstance(tests, str): ## this is the case where the tests taken in is a string of python expression that evaluates to a string of stdin input
+    if isinstance(
+        tests, str
+    ):  ## this is the case where the tests taken in is a string of python expression that evaluates to a string of stdin input
         try:
             result = eval(tests)
             if isinstance(result, str):
                 return result
             else:
                 raise ValueError("The result of the test expression is not a string")
-                #return str(result)
+                # return str(result)
         except Exception as e:
             with open("debug.txt", "a") as debug_file:
                 debug_file.write(f"STDIN TEST: for r = {r}: {tests}\n")
             print(f"Error evaluating test expression: {e}")
             return None
     else:
-        print(f"the type of tests given to post_process_timeout_tests_stdin is {type(tests)}")
+        print(
+            f"the type of tests given to post_process_timeout_tests_stdin is {type(tests)}"
+        )
     return None
+
+
 def post_process_timeout_tests_func(tests, r):
-    if isinstance(tests, str): ## this is the case where the tests taken in is a string of python expression that evaluates to a python input  
+    if isinstance(
+        tests, str
+    ):  ## this is the case where the tests taken in is a string of python expression that evaluates to a python input
         try:
             # Check if there are multiple assignments using semicolons
             if ";" in tests:
@@ -413,8 +481,11 @@ def post_process_timeout_tests_func(tests, r):
             print(f"Error evaluating test expression: {e}")
             return None
     else:
-        print(f"the type of tests given to post_process_timeout_tests_func is {type(tests)}")
+        print(
+            f"the type of tests given to post_process_timeout_tests_func is {type(tests)}"
+        )
     return None
+
 
 @contextlib.contextmanager
 def time_limit(seconds: float):
@@ -427,6 +498,7 @@ def time_limit(seconds: float):
         yield
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
+
 
 @contextlib.contextmanager
 def swallow_io(redirect_input=True):
@@ -443,14 +515,17 @@ def swallow_io(redirect_input=True):
         else:
             yield stream  # Do not redirect stdin
 
+
 @contextlib.contextmanager
 def create_tempdir():
     with tempfile.TemporaryDirectory() as dirname:
         with chdir(dirname):
             yield dirname
 
+
 class TimeoutException(Exception):
     pass
+
 
 class WriteOnlyStringIO(io.StringIO):
     """StringIO that throws an exception when it's read from"""
@@ -468,8 +543,10 @@ class WriteOnlyStringIO(io.StringIO):
         """Returns True if the IO object can be read."""
         return False
 
+
 class redirect_stdin(contextlib._RedirectStream):  # type: ignore
     _stream = "stdin"
+
 
 @contextlib.contextmanager
 def chdir(root):

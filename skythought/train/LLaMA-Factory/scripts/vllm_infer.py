@@ -78,7 +78,9 @@ def vllm_infer(
     tokenizer = tokenizer_module["tokenizer"]
     template_obj = get_template_and_fix_tokenizer(tokenizer, data_args)
     template_obj.mm_plugin.expand_mm_tokens = False  # for vllm generate
-    dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module)
+    dataset_module = get_dataset(
+        template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module
+    )
 
     inputs, prompts, labels = [], [], []
     for sample in dataset_module["train_dataset"]:
@@ -86,7 +88,9 @@ def vllm_infer(
             multi_modal_data = {"image": []}
             for image in sample["images"]:
                 if not isinstance(image, (str, ImageObject)):
-                    raise ValueError(f"Expected image input is a path or PIL.Image, but got {type(image)}.")
+                    raise ValueError(
+                        f"Expected image input is a path or PIL.Image, but got {type(image)}."
+                    )
 
                 if isinstance(image, str):
                     image = Image.open(image).convert("RGB")
@@ -95,18 +99,28 @@ def vllm_infer(
         else:
             multi_modal_data = None
 
-        inputs.append({"prompt_token_ids": sample["input_ids"], "multi_modal_data": multi_modal_data})
+        inputs.append(
+            {
+                "prompt_token_ids": sample["input_ids"],
+                "multi_modal_data": multi_modal_data,
+            }
+        )
         prompts.append(tokenizer.decode(sample["input_ids"], skip_special_tokens=False))
         labels.append(
-            tokenizer.decode(list(filter(lambda x: x != IGNORE_INDEX, sample["labels"])), skip_special_tokens=False)
+            tokenizer.decode(
+                list(filter(lambda x: x != IGNORE_INDEX, sample["labels"])),
+                skip_special_tokens=False,
+            )
         )
 
     sampling_params = SamplingParams(
-        repetition_penalty=generating_args.repetition_penalty or 1.0,  # repetition_penalty must > 0
+        repetition_penalty=generating_args.repetition_penalty
+        or 1.0,  # repetition_penalty must > 0
         temperature=generating_args.temperature,
         top_p=generating_args.top_p or 1.0,  # top_p must > 0
         top_k=generating_args.top_k,
-        stop_token_ids=[tokenizer.eos_token_id] + tokenizer.additional_special_tokens_ids,
+        stop_token_ids=[tokenizer.eos_token_id]
+        + tokenizer.additional_special_tokens_ids,
         max_tokens=generating_args.max_new_tokens,
         skip_special_tokens=False,
     )
@@ -129,11 +143,19 @@ def vllm_infer(
     if isinstance(model_args.vllm_config, dict):
         engine_args.update(model_args.vllm_config)
 
-    results = LLM(**engine_args).generate(inputs, sampling_params, lora_request=lora_request)
+    results = LLM(**engine_args).generate(
+        inputs, sampling_params, lora_request=lora_request
+    )
     preds = [result.outputs[0].text for result in results]
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(prompts, preds, labels):
-            f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
+            f.write(
+                json.dumps(
+                    {"prompt": text, "predict": pred, "label": label},
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
 
     print("*" * 70)
     print(f"{len(prompts)} generated results have been saved at {save_name}.")

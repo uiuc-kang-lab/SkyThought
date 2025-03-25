@@ -12,7 +12,6 @@ from ..base import TaskHandler
 
 
 class APPSTaskHandler(TaskHandler):
-
     def generate_prompt(self, problem):
         # test_case, prompt, starter_code=None
         test_case = json.loads(problem["input_output"])

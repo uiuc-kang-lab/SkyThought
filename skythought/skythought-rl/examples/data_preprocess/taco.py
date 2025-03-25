@@ -24,26 +24,27 @@ from verl.utils.hdfs_io import copy, makedirs
 import argparse
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--local_dir', default='/shared/sycao/rlef/data/taco_simple')
-    parser.add_argument('--hdfs_dir', default=None)
+    parser.add_argument("--local_dir", default="/shared/sycao/rlef/data/taco_simple")
+    parser.add_argument("--hdfs_dir", default=None)
 
     args = parser.parse_args()
 
     num_few_shot = 5
-    data_source = 'BAAI/TACO'
+    data_source = "BAAI/TACO"
 
     dataset = datasets.load_dataset(data_source, "ALL")
 
-    train_dataset = dataset['train'].filter(lambda x: x['difficulty'] == 'EASY')
-    test_dataset = dataset['test'].filter(lambda x: x['difficulty'] == 'EASY')
+    train_dataset = dataset["train"].filter(lambda x: x["difficulty"] == "EASY")
+    test_dataset = dataset["test"].filter(lambda x: x["difficulty"] == "EASY")
 
-    instruction_following = "Let's think step by step and output the final answer in python code block."
+    instruction_following = (
+        "Let's think step by step and output the final answer in python code block."
+    )
 
     # add a row to each data item that represents a unique id
     def make_map_fn(split):
-
         def process_fn(example, idx):
 
             # question_raw = example['question']
@@ -51,11 +52,15 @@ if __name__ == '__main__':
             # question = question_raw + ' ' + instruction_following
             prompt = "\nQUESTION:\n"
             prompt += example["question"]
-            starter_code = None if len(example["starter_code"]) == 0 else example["starter_code"]
+            starter_code = (
+                None if len(example["starter_code"]) == 0 else example["starter_code"]
+            )
             try:
                 input_outpout = json.loads(example["input_output"])
                 fn_name = (
-                    None if not input_outpout.get("fn_name") else input_outpout["fn_name"]
+                    None
+                    if not input_outpout.get("fn_name")
+                    else input_outpout["fn_name"]
                 )
             except ValueError:
                 fn_name = None
@@ -71,24 +76,26 @@ if __name__ == '__main__':
 
             data = {
                 "data_source": data_source,
-                "prompt": [{
-                    "role": "user",
-                    "content": prompt,
-                }],
+                "prompt": [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
                 "task_id": idx,
             }
             return data
 
         return process_fn
 
-    train_dataset = train_dataset.map(function=make_map_fn('train'), with_indices=True)
-    test_dataset = test_dataset.map(function=make_map_fn('test'), with_indices=True)
+    train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
+    test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True)
 
     local_dir = args.local_dir
     hdfs_dir = args.hdfs_dir
 
-    train_dataset.to_parquet(os.path.join(local_dir, 'train.parquet'))
-    test_dataset.to_parquet(os.path.join(local_dir, 'test.parquet'))
+    train_dataset.to_parquet(os.path.join(local_dir, "train.parquet"))
+    test_dataset.to_parquet(os.path.join(local_dir, "test.parquet"))
 
     if hdfs_dir is not None:
         makedirs(hdfs_dir)

@@ -22,7 +22,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import DataCollatorForLanguageModeling
 
-from llamafactory.data import MultiModalDataCollatorForSeq2Seq, get_dataset, get_template_and_fix_tokenizer
+from llamafactory.data import (
+    MultiModalDataCollatorForSeq2Seq,
+    get_dataset,
+    get_template_and_fix_tokenizer,
+)
 from llamafactory.extras.constants import IGNORE_INDEX
 from llamafactory.hparams import get_train_args
 from llamafactory.model import load_model, load_tokenizer
@@ -46,7 +50,9 @@ class PairwiseDataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
                 {
                     "input_ids": feature["chosen_input_ids"],
                     "attention_mask": feature["chosen_attention_mask"],
-                    "labels": feature["chosen_input_ids"] if self.train_on_prompt else feature["chosen_labels"],
+                    "labels": feature["chosen_input_ids"]
+                    if self.train_on_prompt
+                    else feature["chosen_labels"],
                     "images": feature["images"],
                     "videos": feature["videos"],
                 }
@@ -90,7 +96,9 @@ def calculate_ppl(
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
-    trainset = get_dataset(template, model_args, data_args, training_args, stage, **tokenizer_module)["train_dataset"]
+    trainset = get_dataset(
+        template, model_args, data_args, training_args, stage, **tokenizer_module
+    )["train_dataset"]
     model = load_model(tokenizer, model_args, finetuning_args, is_trainable=False)
     if stage == "pt":
         data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
@@ -100,12 +108,17 @@ def calculate_ppl(
         )
     elif stage == "rm":
         data_collator = PairwiseDataCollatorWithPadding(
-            template=template, tokenizer=tokenizer, label_pad_token_id=IGNORE_INDEX, train_on_prompt=train_on_prompt
+            template=template,
+            tokenizer=tokenizer,
+            label_pad_token_id=IGNORE_INDEX,
+            train_on_prompt=train_on_prompt,
         )
     else:
         raise NotImplementedError(f"Stage does not supported: {stage}.")
 
-    dataloader = DataLoader(trainset, batch_size, shuffle=False, collate_fn=data_collator, pin_memory=True)
+    dataloader = DataLoader(
+        trainset, batch_size, shuffle=False, collate_fn=data_collator, pin_memory=True
+    )
     criterion = torch.nn.CrossEntropyLoss(reduction="none")
     total_ppl = 0
     perplexities = []
@@ -117,7 +130,9 @@ def calculate_ppl(
             shift_logits: "torch.Tensor" = outputs["logits"][..., :-1, :]
             shift_labels: "torch.Tensor" = batch["labels"][..., 1:]
             loss_mask = shift_labels != IGNORE_INDEX
-            flatten_logits = shift_logits.contiguous().view(shift_labels.size(0) * shift_labels.size(1), -1)
+            flatten_logits = shift_logits.contiguous().view(
+                shift_labels.size(0) * shift_labels.size(1), -1
+            )
             flatten_labels = shift_labels.contiguous().view(-1)
             token_logps: "torch.Tensor" = criterion(flatten_logits, flatten_labels)
             token_logps = token_logps.contiguous().view(shift_logits.size(0), -1)

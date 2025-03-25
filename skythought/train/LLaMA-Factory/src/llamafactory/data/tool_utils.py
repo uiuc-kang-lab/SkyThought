@@ -97,15 +97,19 @@ class DefaultToolUtils(ToolUtils):
                     enum = ", should be one of [{}]".format(", ".join(param["enum"]))
 
                 if param.get("items", None):
-                    items = ", where each item should be {}".format(param["items"].get("type", ""))
+                    items = ", where each item should be {}".format(
+                        param["items"].get("type", "")
+                    )
 
-                param_text += "  - {name} ({type}{required}): {desc}{enum}{items}\n".format(
-                    name=name,
-                    type=param.get("type", ""),
-                    required=required,
-                    desc=param.get("description", ""),
-                    enum=enum,
-                    items=items,
+                param_text += (
+                    "  - {name} ({type}{required}): {desc}{enum}{items}\n".format(
+                        name=name,
+                        type=param.get("type", ""),
+                        required=required,
+                        desc=param.get("description", ""),
+                        enum=enum,
+                        items=items,
+                    )
                 )
 
             tool_text += "> Tool Name: {name}\nTool Description: {desc}\nTool Args:\n{args}\n".format(
@@ -113,12 +117,17 @@ class DefaultToolUtils(ToolUtils):
             )
             tool_names.append(tool["name"])
 
-        return DEFAULT_TOOL_PROMPT.format(tool_text=tool_text, tool_names=", ".join(tool_names))
+        return DEFAULT_TOOL_PROMPT.format(
+            tool_text=tool_text, tool_names=", ".join(tool_names)
+        )
 
     @override
     @staticmethod
     def tool_extractor(content: str) -> Union[str, List["FunctionCall"]]:
-        regex = re.compile(r"Action:\s*([a-zA-Z0-9_]+)\s*Action Input:\s*(.+?)(?=\s*Action:|\s*$)", re.DOTALL)
+        regex = re.compile(
+            r"Action:\s*([a-zA-Z0-9_]+)\s*Action Input:\s*(.+?)(?=\s*Action:|\s*$)",
+            re.DOTALL,
+        )
         action_match: List[Tuple[str, str]] = re.findall(regex, content)
         if not action_match:
             return content

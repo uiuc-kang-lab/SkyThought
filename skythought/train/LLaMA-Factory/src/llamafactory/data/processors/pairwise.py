@@ -43,18 +43,30 @@ def _encode_pairwise_example(
     processor: Optional["ProcessorMixin"],
     cutoff_len: int,
 ) -> Tuple[List[int], List[int], List[int], List[int]]:
-    chosen_messages = template.mm_plugin.process_messages(prompt + [response[0]], images, videos, processor)
-    rejected_messages = template.mm_plugin.process_messages(prompt + [response[1]], images, videos, processor)
-    prompt_ids, chosen_ids = template.encode_oneturn(tokenizer, chosen_messages, system, tools)
-    _, rejected_ids = template.encode_oneturn(tokenizer, rejected_messages, system, tools)
+    chosen_messages = template.mm_plugin.process_messages(
+        prompt + [response[0]], images, videos, processor
+    )
+    rejected_messages = template.mm_plugin.process_messages(
+        prompt + [response[1]], images, videos, processor
+    )
+    prompt_ids, chosen_ids = template.encode_oneturn(
+        tokenizer, chosen_messages, system, tools
+    )
+    _, rejected_ids = template.encode_oneturn(
+        tokenizer, rejected_messages, system, tools
+    )
 
     if template.efficient_eos:
         chosen_ids += [tokenizer.eos_token_id]
         rejected_ids += [tokenizer.eos_token_id]
 
-    prompt_ids, _ = template.mm_plugin.process_token_ids(prompt_ids, None, images, videos, tokenizer, processor)
+    prompt_ids, _ = template.mm_plugin.process_token_ids(
+        prompt_ids, None, images, videos, tokenizer, processor
+    )
     # consider the response is more important
-    source_len, target_len = infer_seqlen(len(prompt_ids), max(len(chosen_ids), len(rejected_ids)), cutoff_len)
+    source_len, target_len = infer_seqlen(
+        len(prompt_ids), max(len(chosen_ids), len(rejected_ids)), cutoff_len
+    )
     prompt_ids = prompt_ids[:source_len]
     chosen_ids = chosen_ids[:target_len]
     rejected_ids = rejected_ids[:target_len]
@@ -78,11 +90,18 @@ def preprocess_pairwise_dataset(
     for i in range(len(examples["_prompt"])):
         if len(examples["_prompt"][i]) % 2 != 1 or len(examples["_response"][i]) < 2:
             logger.warning_rank0(
-                "Dropped invalid example: {}".format(examples["_prompt"][i] + examples["_response"][i])
+                "Dropped invalid example: {}".format(
+                    examples["_prompt"][i] + examples["_response"][i]
+                )
             )
             continue
 
-        chosen_input_ids, chosen_labels, rejected_input_ids, rejected_labels = _encode_pairwise_example(
+        (
+            chosen_input_ids,
+            chosen_labels,
+            rejected_input_ids,
+            rejected_labels,
+        ) = _encode_pairwise_example(
             prompt=examples["_prompt"][i],
             response=examples["_response"][i],
             system=examples["_system"][i],
@@ -106,14 +125,32 @@ def preprocess_pairwise_dataset(
     return model_inputs
 
 
-def print_pairwise_dataset_example(example: Dict[str, List[int]], tokenizer: "PreTrainedTokenizer") -> None:
-    valid_chosen_labels = list(filter(lambda x: x != IGNORE_INDEX, example["chosen_labels"]))
-    valid_rejected_labels = list(filter(lambda x: x != IGNORE_INDEX, example["rejected_labels"]))
+def print_pairwise_dataset_example(
+    example: Dict[str, List[int]], tokenizer: "PreTrainedTokenizer"
+) -> None:
+    valid_chosen_labels = list(
+        filter(lambda x: x != IGNORE_INDEX, example["chosen_labels"])
+    )
+    valid_rejected_labels = list(
+        filter(lambda x: x != IGNORE_INDEX, example["rejected_labels"])
+    )
     print("chosen_input_ids:\n{}".format(example["chosen_input_ids"]))
-    print("chosen_inputs:\n{}".format(tokenizer.decode(example["chosen_input_ids"], skip_special_tokens=False)))
+    print(
+        "chosen_inputs:\n{}".format(
+            tokenizer.decode(example["chosen_input_ids"], skip_special_tokens=False)
+        )
+    )
     print("chosen_label_ids:\n{}".format(example["chosen_labels"]))
-    print(f"chosen_labels:\n{tokenizer.decode(valid_chosen_labels, skip_special_tokens=False)}")
+    print(
+        f"chosen_labels:\n{tokenizer.decode(valid_chosen_labels, skip_special_tokens=False)}"
+    )
     print("rejected_input_ids:\n{}".format(example["rejected_input_ids"]))
-    print("rejected_inputs:\n{}".format(tokenizer.decode(example["rejected_input_ids"], skip_special_tokens=False)))
+    print(
+        "rejected_inputs:\n{}".format(
+            tokenizer.decode(example["rejected_input_ids"], skip_special_tokens=False)
+        )
+    )
     print("rejected_label_ids:\n{}".format(example["rejected_labels"]))
-    print(f"rejected_labels:\n{tokenizer.decode(valid_rejected_labels, skip_special_tokens=False)}")
+    print(
+        f"rejected_labels:\n{tokenizer.decode(valid_rejected_labels, skip_special_tokens=False)}"
+    )

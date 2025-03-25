@@ -14,7 +14,17 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Literal, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Union,
+)
 
 
 if TYPE_CHECKING:
@@ -23,7 +33,12 @@ if TYPE_CHECKING:
 
     from ..data import Template
     from ..data.mm_plugin import ImageInput, VideoInput
-    from ..hparams import DataArguments, FinetuningArguments, GeneratingArguments, ModelArguments
+    from ..hparams import (
+        DataArguments,
+        FinetuningArguments,
+        GeneratingArguments,
+        ModelArguments,
+    )
 
 
 @dataclass

@@ -31,7 +31,9 @@ if TYPE_CHECKING:
 logger = logging.get_logger(__name__)
 
 
-def configure_rope(config: "PretrainedConfig", model_args: "ModelArguments", is_trainable: bool) -> None:
+def configure_rope(
+    config: "PretrainedConfig", model_args: "ModelArguments", is_trainable: bool
+) -> None:
     if model_args.rope_scaling is None:
         return
 
@@ -48,16 +50,26 @@ def configure_rope(config: "PretrainedConfig", model_args: "ModelArguments", is_
 
         current_max_length = getattr(config, "max_position_embeddings", None)
         if current_max_length and model_args.model_max_length > current_max_length:
-            logger.info_rank0(f"Enlarge max model length from {current_max_length} to {model_args.model_max_length}.")
+            logger.info_rank0(
+                f"Enlarge max model length from {current_max_length} to {model_args.model_max_length}."
+            )
             setattr(config, "max_position_embeddings", model_args.model_max_length)
-            scaling_factor = float(math.ceil(model_args.model_max_length / current_max_length))
+            scaling_factor = float(
+                math.ceil(model_args.model_max_length / current_max_length)
+            )
         else:
-            logger.warning_rank0("Input length is smaller than max length. Consider increase input length.")
+            logger.warning_rank0(
+                "Input length is smaller than max length. Consider increase input length."
+            )
             scaling_factor = 1.0
     else:
         scaling_factor = 2.0
 
-    setattr(config, "rope_scaling", {"type": model_args.rope_scaling, "factor": scaling_factor})
+    setattr(
+        config,
+        "rope_scaling",
+        {"type": model_args.rope_scaling, "factor": scaling_factor},
+    )
     logger.info_rank0(
         f"Using {model_args.rope_scaling} scaling strategy and setting scaling factor to {scaling_factor}"
     )

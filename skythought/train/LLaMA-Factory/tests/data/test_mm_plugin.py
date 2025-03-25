@@ -75,7 +75,9 @@ def _is_close(batch_a: Dict[str, Any], batch_b: Dict[str, Any]) -> None:
     for key in batch_a.keys():
         if isinstance(batch_a[key], torch.Tensor):
             assert torch.allclose(batch_a[key], batch_b[key], rtol=1e-4, atol=1e-5)
-        elif isinstance(batch_a[key], list) and all(isinstance(item, torch.Tensor) for item in batch_a[key]):
+        elif isinstance(batch_a[key], list) and all(
+            isinstance(item, torch.Tensor) for item in batch_a[key]
+        ):
             assert len(batch_a[key]) == len(batch_b[key])
             for tensor_a, tensor_b in zip(batch_a[key], batch_b[key]):
                 assert torch.allclose(tensor_a, tensor_b, rtol=1e-4, atol=1e-5)
@@ -84,7 +86,9 @@ def _is_close(batch_a: Dict[str, Any], batch_b: Dict[str, Any]) -> None:
 
 
 def _load_tokenizer_module(model_name_or_path: str) -> "TokenizerModule":
-    model_args, *_ = get_infer_args({"model_name_or_path": model_name_or_path, "template": "default"})
+    model_args, *_ = get_infer_args(
+        {"model_name_or_path": model_name_or_path, "template": "default"}
+    )
     return load_tokenizer(model_args)
 
 
@@ -99,23 +103,37 @@ def _check_plugin(
     expected_no_mm_inputs: Dict[str, Any] = {},
 ) -> None:
     # test mm_messages
-    assert plugin.process_messages(MM_MESSAGES, IMAGES, NO_VIDEOS, processor) == expected_mm_messages
-    assert plugin.process_token_ids(INPUT_IDS, LABELS, IMAGES, NO_VIDEOS, tokenizer, processor) == (
+    assert (
+        plugin.process_messages(MM_MESSAGES, IMAGES, NO_VIDEOS, processor)
+        == expected_mm_messages
+    )
+    assert plugin.process_token_ids(
+        INPUT_IDS, LABELS, IMAGES, NO_VIDEOS, tokenizer, processor
+    ) == (
         expected_input_ids,
         expected_labels,
     )
     _is_close(
-        plugin.get_mm_inputs(IMAGES, NO_VIDEOS, IMGLENS, NO_VIDLENS, BATCH_IDS, processor),
+        plugin.get_mm_inputs(
+            IMAGES, NO_VIDEOS, IMGLENS, NO_VIDLENS, BATCH_IDS, processor
+        ),
         expected_mm_inputs,
     )
     # test text_messages
-    assert plugin.process_messages(TEXT_MESSAGES, NO_IMAGES, NO_VIDEOS, processor) == TEXT_MESSAGES
-    assert plugin.process_token_ids(INPUT_IDS, LABELS, NO_IMAGES, NO_VIDEOS, tokenizer, processor) == (
+    assert (
+        plugin.process_messages(TEXT_MESSAGES, NO_IMAGES, NO_VIDEOS, processor)
+        == TEXT_MESSAGES
+    )
+    assert plugin.process_token_ids(
+        INPUT_IDS, LABELS, NO_IMAGES, NO_VIDEOS, tokenizer, processor
+    ) == (
         INPUT_IDS,
         LABELS,
     )
     _is_close(
-        plugin.get_mm_inputs(NO_IMAGES, NO_VIDEOS, NO_IMGLENS, NO_VIDLENS, BATCH_IDS, processor),
+        plugin.get_mm_inputs(
+            NO_IMAGES, NO_VIDEOS, NO_IMGLENS, NO_VIDLENS, BATCH_IDS, processor
+        ),
         expected_no_mm_inputs,
     )
 
@@ -129,11 +147,16 @@ def test_base_plugin():
 
 def test_llava_plugin():
     image_seqlen = 576
-    tokenizer_module = _load_tokenizer_module(model_name_or_path="llava-hf/llava-1.5-7b-hf")
+    tokenizer_module = _load_tokenizer_module(
+        model_name_or_path="llava-hf/llava-1.5-7b-hf"
+    )
     llava_plugin = get_mm_plugin(name="llava", image_token="<image>")
     check_inputs = {"plugin": llava_plugin, **tokenizer_module}
     check_inputs["expected_mm_messages"] = [
-        {key: value.replace("<image>", "<image>" * image_seqlen) for key, value in message.items()}
+        {
+            key: value.replace("<image>", "<image>" * image_seqlen)
+            for key, value in message.items()
+        }
         for message in MM_MESSAGES
     ]
     check_inputs["expected_mm_inputs"] = _get_mm_inputs(tokenizer_module["processor"])
@@ -142,11 +165,16 @@ def test_llava_plugin():
 
 def test_llava_next_plugin():
     image_seqlen = 1176
-    tokenizer_module = _load_tokenizer_module(model_name_or_path="llava-hf/llava-v1.6-vicuna-7b-hf")
+    tokenizer_module = _load_tokenizer_module(
+        model_name_or_path="llava-hf/llava-v1.6-vicuna-7b-hf"
+    )
     llava_next_plugin = get_mm_plugin(name="llava_next", image_token="<image>")
     check_inputs = {"plugin": llava_next_plugin, **tokenizer_module}
     check_inputs["expected_mm_messages"] = [
-        {key: value.replace("<image>", "<image>" * image_seqlen) for key, value in message.items()}
+        {
+            key: value.replace("<image>", "<image>" * image_seqlen)
+            for key, value in message.items()
+        }
         for message in MM_MESSAGES
     ]
     check_inputs["expected_mm_inputs"] = _get_mm_inputs(tokenizer_module["processor"])
@@ -155,11 +183,18 @@ def test_llava_next_plugin():
 
 def test_llava_next_video_plugin():
     image_seqlen = 1176
-    tokenizer_module = _load_tokenizer_module(model_name_or_path="llava-hf/LLaVA-NeXT-Video-7B-hf")
-    llava_next_video_plugin = get_mm_plugin(name="llava_next_video", image_token="<image>", video_token="<video>")
+    tokenizer_module = _load_tokenizer_module(
+        model_name_or_path="llava-hf/LLaVA-NeXT-Video-7B-hf"
+    )
+    llava_next_video_plugin = get_mm_plugin(
+        name="llava_next_video", image_token="<image>", video_token="<video>"
+    )
     check_inputs = {"plugin": llava_next_video_plugin, **tokenizer_module}
     check_inputs["expected_mm_messages"] = [
-        {key: value.replace("<image>", "<image>" * image_seqlen) for key, value in message.items()}
+        {
+            key: value.replace("<image>", "<image>" * image_seqlen)
+            for key, value in message.items()
+        }
         for message in MM_MESSAGES
     ]
     check_inputs["expected_mm_inputs"] = _get_mm_inputs(tokenizer_module["processor"])
@@ -169,32 +204,44 @@ def test_llava_next_video_plugin():
 @pytest.mark.skipif(not HF_TOKEN, reason="Gated model.")
 def test_paligemma_plugin():
     image_seqlen = 256
-    tokenizer_module = _load_tokenizer_module(model_name_or_path="google/paligemma-3b-pt-224")
+    tokenizer_module = _load_tokenizer_module(
+        model_name_or_path="google/paligemma-3b-pt-224"
+    )
     paligemma_plugin = get_mm_plugin(name="paligemma", image_token="<image>")
     check_inputs = {"plugin": paligemma_plugin, **tokenizer_module}
     check_inputs["expected_mm_messages"] = [
-        {key: value.replace("<image>", "") for key, value in message.items()} for message in MM_MESSAGES
+        {key: value.replace("<image>", "") for key, value in message.items()}
+        for message in MM_MESSAGES
     ]
     check_inputs["expected_input_ids"] = [
-        tokenizer_module["tokenizer"].convert_tokens_to_ids(paligemma_plugin.image_token)
+        tokenizer_module["tokenizer"].convert_tokens_to_ids(
+            paligemma_plugin.image_token
+        )
     ] * image_seqlen + INPUT_IDS
     check_inputs["expected_labels"] = [-100] * image_seqlen + LABELS
     check_inputs["expected_mm_inputs"] = _get_mm_inputs(tokenizer_module["processor"])
-    check_inputs["expected_mm_inputs"]["token_type_ids"] = [[0] * image_seqlen + [1] * (1024 - image_seqlen)]
+    check_inputs["expected_mm_inputs"]["token_type_ids"] = [
+        [0] * image_seqlen + [1] * (1024 - image_seqlen)
+    ]
     check_inputs["expected_no_mm_inputs"] = {"token_type_ids": [[1] * 1024]}
     _check_plugin(**check_inputs)
 
 
 def test_pixtral_plugin():
     image_slice_height, image_slice_width = 2, 2
-    tokenizer_module = _load_tokenizer_module(model_name_or_path="mistral-community/pixtral-12b")
+    tokenizer_module = _load_tokenizer_module(
+        model_name_or_path="mistral-community/pixtral-12b"
+    )
     pixtral_plugin = get_mm_plugin(name="pixtral", image_token="[IMG]")
     check_inputs = {"plugin": pixtral_plugin, **tokenizer_module}
     check_inputs["expected_mm_messages"] = [
         {
             key: value.replace(
                 "<image>",
-                ("{}[IMG_BREAK]".format("[IMG]" * image_slice_width) * image_slice_height).rsplit("[IMG_BREAK]", 1)[0]
+                (
+                    "{}[IMG_BREAK]".format("[IMG]" * image_slice_width)
+                    * image_slice_height
+                ).rsplit("[IMG_BREAK]", 1)[0]
                 + "[IMG_END]",
             )
             for key, value in message.items()
@@ -203,18 +250,27 @@ def test_pixtral_plugin():
     ]
     check_inputs["expected_mm_inputs"] = _get_mm_inputs(tokenizer_module["processor"])
     check_inputs["expected_mm_inputs"].pop("image_sizes")
-    check_inputs["expected_mm_inputs"]["pixel_values"] = check_inputs["expected_mm_inputs"]["pixel_values"][0]
+    check_inputs["expected_mm_inputs"]["pixel_values"] = check_inputs[
+        "expected_mm_inputs"
+    ]["pixel_values"][0]
     _check_plugin(**check_inputs)
 
 
 def test_qwen2_vl_plugin():
     image_seqlen = 4
-    tokenizer_module = _load_tokenizer_module(model_name_or_path="Qwen/Qwen2-VL-7B-Instruct")
+    tokenizer_module = _load_tokenizer_module(
+        model_name_or_path="Qwen/Qwen2-VL-7B-Instruct"
+    )
     qwen2_vl_plugin = get_mm_plugin(name="qwen2_vl", image_token="<|image_pad|>")
     check_inputs = {"plugin": qwen2_vl_plugin, **tokenizer_module}
     check_inputs["expected_mm_messages"] = [
         {
-            key: value.replace("<image>", "<|vision_start|>{}<|vision_end|>".format("<|image_pad|>" * image_seqlen))
+            key: value.replace(
+                "<image>",
+                "<|vision_start|>{}<|vision_end|>".format(
+                    "<|image_pad|>" * image_seqlen
+                ),
+            )
             for key, value in message.items()
         }
         for message in MM_MESSAGES
@@ -225,11 +281,18 @@ def test_qwen2_vl_plugin():
 
 def test_video_llava_plugin():
     image_seqlen = 256
-    tokenizer_module = _load_tokenizer_module(model_name_or_path="LanguageBind/Video-LLaVA-7B-hf")
-    video_llava_plugin = get_mm_plugin(name="video_llava", image_token="<image>", video_token="<video>")
+    tokenizer_module = _load_tokenizer_module(
+        model_name_or_path="LanguageBind/Video-LLaVA-7B-hf"
+    )
+    video_llava_plugin = get_mm_plugin(
+        name="video_llava", image_token="<image>", video_token="<video>"
+    )
     check_inputs = {"plugin": video_llava_plugin, **tokenizer_module}
     check_inputs["expected_mm_messages"] = [
-        {key: value.replace("<image>", "<image>" * image_seqlen) for key, value in message.items()}
+        {
+            key: value.replace("<image>", "<image>" * image_seqlen)
+            for key, value in message.items()
+        }
         for message in MM_MESSAGES
     ]
     check_inputs["expected_mm_inputs"] = _get_mm_inputs(tokenizer_module["processor"])

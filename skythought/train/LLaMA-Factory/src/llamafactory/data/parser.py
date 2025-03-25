@@ -67,11 +67,15 @@ class DatasetAttr:
     def __repr__(self) -> str:
         return self.dataset_name
 
-    def set_attr(self, key: str, obj: Dict[str, Any], default: Optional[Any] = None) -> None:
+    def set_attr(
+        self, key: str, obj: Dict[str, Any], default: Optional[Any] = None
+    ) -> None:
         setattr(self, key, obj.get(key, default))
 
 
-def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -> List["DatasetAttr"]:
+def get_dataset_list(
+    dataset_names: Optional[Sequence[str]], dataset_dir: str
+) -> List["DatasetAttr"]:
     r"""
     Gets the attributes of the datasets.
     """
@@ -82,7 +86,11 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
         dataset_info = None
     else:
         if dataset_dir.startswith("REMOTE:"):
-            config_path = cached_file(path_or_repo_id=dataset_dir[7:], filename=DATA_CONFIG, repo_type="dataset")
+            config_path = cached_file(
+                path_or_repo_id=dataset_dir[7:],
+                filename=DATA_CONFIG,
+                repo_type="dataset",
+            )
         else:
             config_path = os.path.join(dataset_dir, DATA_CONFIG)
 
@@ -117,15 +125,25 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
 
         if has_hf_url or has_ms_url or has_om_url:
             if has_ms_url and (use_modelscope() or not has_hf_url):
-                dataset_attr = DatasetAttr("ms_hub", dataset_name=dataset_info[name]["ms_hub_url"])
+                dataset_attr = DatasetAttr(
+                    "ms_hub", dataset_name=dataset_info[name]["ms_hub_url"]
+                )
             elif has_om_url and (use_openmind() or not has_hf_url):
-                dataset_attr = DatasetAttr("om_hub", dataset_name=dataset_info[name]["om_hub_url"])
+                dataset_attr = DatasetAttr(
+                    "om_hub", dataset_name=dataset_info[name]["om_hub_url"]
+                )
             else:
-                dataset_attr = DatasetAttr("hf_hub", dataset_name=dataset_info[name]["hf_hub_url"])
+                dataset_attr = DatasetAttr(
+                    "hf_hub", dataset_name=dataset_info[name]["hf_hub_url"]
+                )
         elif "script_url" in dataset_info[name]:
-            dataset_attr = DatasetAttr("script", dataset_name=dataset_info[name]["script_url"])
+            dataset_attr = DatasetAttr(
+                "script", dataset_name=dataset_info[name]["script_url"]
+            )
         else:
-            dataset_attr = DatasetAttr("file", dataset_name=dataset_info[name]["file_name"])
+            dataset_attr = DatasetAttr(
+                "file", dataset_name=dataset_info[name]["file_name"]
+            )
 
         dataset_attr.set_attr("formatting", dataset_info[name], default="alpaca")
         dataset_attr.set_attr("ranking", dataset_info[name], default=False)
@@ -135,7 +153,15 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
         dataset_attr.set_attr("num_samples", dataset_info[name])
 
         if "columns" in dataset_info[name]:
-            column_names = ["system", "tools", "images", "videos", "chosen", "rejected", "kto_tag"]
+            column_names = [
+                "system",
+                "tools",
+                "images",
+                "videos",
+                "chosen",
+                "rejected",
+                "kto_tag",
+            ]
             if dataset_attr.formatting == "alpaca":
                 column_names.extend(["prompt", "query", "response", "history"])
             else:

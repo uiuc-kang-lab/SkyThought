@@ -6,11 +6,11 @@ from ..base import TaskHandler
 
 
 class GPQADiamondTaskHandler(TaskHandler):
-
     def generate_prompt(self, problem):
-        multiple_choice_string, correct_answer_letter = (
-            self.get_multiple_choice_answers(problem)
-        )
+        (
+            multiple_choice_string,
+            correct_answer_letter,
+        ) = self.get_multiple_choice_answers(problem)
         problem["Answer"] = correct_answer_letter
         problem["prompt"] = problem["Question"] + "\n" + multiple_choice_string
         return self.task_config.templating_parameters["template"].format(

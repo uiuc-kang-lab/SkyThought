@@ -12,7 +12,6 @@ from ..base import TaskHandler
 
 
 class NUMINATaskHandler(TaskHandler):
-
     def generate_prompt(self, problem: Dict[str, Any]):
         prompt = problem["problem"]
         return self.task_config.templating_parameters["template"].format(prompt=prompt)

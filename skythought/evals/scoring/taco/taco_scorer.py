@@ -48,7 +48,6 @@ class TACOScorer(Scorer):
 
 
 def _taco_run_tests_mp(input_outputs, generation):
-
     def _temp_run(input_outputs, generation, debug, result):
         try:
             result.append(taco_run_test(input_outputs, test=generation, debug=debug))

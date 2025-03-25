@@ -107,15 +107,16 @@ def is_digit(s):
 
 def normalize(answer, pi) -> str:
     # checking if answer is $<number> and removing $ in that case to compare
-    if isinstance(answer, str) and bool(re.match(r'\$\d+(\.\d+)?', answer)):
+    if isinstance(answer, str) and bool(re.match(r"\$\d+(\.\d+)?", answer)):
         return answer[1:]
 
     # checking if answer is <number>% or <number>\\% and removing %
     if isinstance(answer, str) and (
-        bool(re.match(r'^\d+(\.\d+)?%$', answer)) or bool(re.match(r'^\d+(\.\d+)?\\%$', answer))
+        bool(re.match(r"^\d+(\.\d+)?%$", answer))
+        or bool(re.match(r"^\d+(\.\d+)?\\%$", answer))
     ):
         return answer.replace("\\%", "").replace("%", "")
-    
+
     # handle base
     answer = handle_base(answer)
 
@@ -123,6 +124,7 @@ def normalize(answer, pi) -> str:
     answer = handle_pi(answer, pi)
 
     return answer
+
 
 def handle_base(x) -> str:
     if isinstance(x, str) and "_" in x:
@@ -142,12 +144,12 @@ def handle_pi(string, pi):
         # Iterate over the string and find all occurrences of "\pi" with a valid previous character
         while idx != -1:
 
-            if idx > 0 and string[idx-1].isdigit():
+            if idx > 0 and string[idx - 1].isdigit():
                 # Replace "\pi" with "*math.pi" if the previous character is a digit
-                string = string[:idx] + f"*{pi}" + string[idx+3:]
+                string = string[:idx] + f"*{pi}" + string[idx + 3 :]
             else:
                 # Replace "\pi" with "1*math.pi" if the previous character is not a digit
-                string = string[:idx] + f"1*{pi}" + string[idx+3:]
+                string = string[:idx] + f"1*{pi}" + string[idx + 3 :]
 
             # Find the next occurrence of "\pi"
             idx = string.find("\pi", idx + 1)
@@ -157,8 +159,9 @@ def handle_pi(string, pi):
             string = eval(string)
         except:
             pass
-            
+
     return string
+
 
 def math_equal(
     prediction: Union[bool, float, str],
@@ -166,7 +169,7 @@ def math_equal(
     include_percentage: bool = True,
     tolerance: float = 1e-4,
     timeout: float = 10.0,
-    pi: float = math.pi
+    pi: float = math.pi,
 ) -> bool:
     """
     Exact match of math if and only if:
@@ -177,7 +180,9 @@ def math_equal(
     prediction = normalize(prediction, pi)
     reference = normalize(reference, pi)
 
-    if isinstance(prediction, str) and len(prediction) > 1000:  # handling weird corner-cases
+    if (
+        isinstance(prediction, str) and len(prediction) > 1000
+    ):  # handling weird corner-cases
         prediction = prediction[:1000]
 
     # 0. string comparison
@@ -217,8 +222,14 @@ def math_equal(
     prediction = format_intervals(prediction)
 
     pred_str, ref_str = prediction, reference
-    if (prediction.startswith("[") and prediction.endswith("]") and not reference.startswith("(")) or (
-        prediction.startswith("(") and prediction.endswith(")") and not reference.startswith("[")
+    if (
+        prediction.startswith("[")
+        and prediction.endswith("]")
+        and not reference.startswith("(")
+    ) or (
+        prediction.startswith("(")
+        and prediction.endswith(")")
+        and not reference.startswith("[")
     ):
         pred_str = pred_str.strip("[]()")
         ref_str = ref_str.strip("[]()")
@@ -255,7 +266,9 @@ def math_equal(
         if len(pred_parts) == len(ref_parts):
             if all(
                 [
-                    math_equal(pred_parts[i], ref_parts[i], include_percentage, tolerance)
+                    math_equal(
+                        pred_parts[i], ref_parts[i], include_percentage, tolerance
+                    )
                     for i in range(len(pred_parts))
                 ]
             ):
@@ -291,14 +304,25 @@ def math_equal(
                     return True
         except Exception:
             pass
-    elif "\begin{pmatrix}" in reference and prediction.startswith("[") and prediction.endswith("]"):
+    elif (
+        "\begin{pmatrix}" in reference
+        and prediction.startswith("[")
+        and prediction.endswith("]")
+    ):
         if isinstance(eval(prediction), list):
             try:
                 pred_matrix = eval(prediction)
                 # ref_matrix_items = reference.split()[1:-1:2]
-                ref_matrix_items = reference.lstrip("\\begin{pmatrix}").lstrip("\begin{pmatrix}").rstrip("\\end{pmatrix}").rstrip("\end{pmatrix}")
+                ref_matrix_items = (
+                    reference.lstrip("\\begin{pmatrix}")
+                    .lstrip("\begin{pmatrix}")
+                    .rstrip("\\end{pmatrix}")
+                    .rstrip("\end{pmatrix}")
+                )
                 ref_matrix_items = ref_matrix_items.split("\\")
-                ref_matrix_items = [row.split("&") if "&" in row else row for row in ref_matrix_items]
+                ref_matrix_items = [
+                    row.split("&") if "&" in row else row for row in ref_matrix_items
+                ]
                 if len(pred_matrix) == len(ref_matrix_items):
                     if all(
                         [

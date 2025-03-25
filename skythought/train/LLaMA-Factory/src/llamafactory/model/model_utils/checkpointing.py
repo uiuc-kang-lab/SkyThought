@@ -63,7 +63,9 @@ def get_unsloth_gradient_checkpointing_func() -> Callable:
 
         @staticmethod
         @torch.cuda.amp.custom_bwd
-        def backward(ctx: "torch.autograd.Function", grad_output: "torch.Tensor") -> "torch.Tensor":
+        def backward(
+            ctx: "torch.autograd.Function", grad_output: "torch.Tensor"
+        ) -> "torch.Tensor":
             (hidden_states,) = ctx.saved_tensors
             hidden_states = hidden_states.to("cuda", non_blocking=True).detach()
             hidden_states.requires_grad_(True)
@@ -76,13 +78,17 @@ def get_unsloth_gradient_checkpointing_func() -> Callable:
     return UnslothGradientCheckpointing.apply
 
 
-def get_custom_gradient_checkpointing_func(gradient_checkpointing_func: Callable) -> Callable:
+def get_custom_gradient_checkpointing_func(
+    gradient_checkpointing_func: Callable,
+) -> Callable:
     r"""
     Only applies gradient checkpointing to trainable layers.
     """
 
     @wraps(gradient_checkpointing_func, assigned=WRAPPER_ASSIGNMENTS + ("__self__",))
-    def custom_gradient_checkpointing_func(func: Callable, *args: Union["torch.Tensor", Any], **kwargs):
+    def custom_gradient_checkpointing_func(
+        func: Callable, *args: Union["torch.Tensor", Any], **kwargs
+    ):
         module: "torch.nn.Module" = func.__self__
 
         if any(param.requires_grad for param in module.parameters()):
@@ -108,7 +114,9 @@ def _gradient_checkpointing_enable(
     from torch.utils.checkpoint import checkpoint
 
     if not self.supports_gradient_checkpointing:
-        raise ValueError(f"{self.__class__.__name__} does not support gradient checkpointing.")
+        raise ValueError(
+            f"{self.__class__.__name__} does not support gradient checkpointing."
+        )
 
     if gradient_checkpointing_kwargs is None:
         gradient_checkpointing_kwargs = {"use_reentrant": True}
@@ -116,15 +124,25 @@ def _gradient_checkpointing_enable(
     if use_unsloth_gc:
         gradient_checkpointing_func = get_unsloth_gradient_checkpointing_func()
     else:
-        gradient_checkpointing_func = partial(checkpoint, **gradient_checkpointing_kwargs)
+        gradient_checkpointing_func = partial(
+            checkpoint, **gradient_checkpointing_kwargs
+        )
 
-    gradient_checkpointing_func = get_custom_gradient_checkpointing_func(gradient_checkpointing_func)
-    if "value" in inspect.signature(self._set_gradient_checkpointing).parameters:  # old GC format
+    gradient_checkpointing_func = get_custom_gradient_checkpointing_func(
+        gradient_checkpointing_func
+    )
+    if (
+        "value" in inspect.signature(self._set_gradient_checkpointing).parameters
+    ):  # old GC format
         self.apply(partial(self._set_gradient_checkpointing, value=True))
         self.enable_input_require_grads()
-        logger.warning_once("You are using the old GC format, some features (e.g. BAdam) will be invalid.")
+        logger.warning_once(
+            "You are using the old GC format, some features (e.g. BAdam) will be invalid."
+        )
     else:  # have already enabled input require gradients
-        self._set_gradient_checkpointing(enable=True, gradient_checkpointing_func=gradient_checkpointing_func)
+        self._set_gradient_checkpointing(
+            enable=True, gradient_checkpointing_func=gradient_checkpointing_func
+        )
 
 
 def _fp32_forward_post_hook(
@@ -133,7 +151,9 @@ def _fp32_forward_post_hook(
     return output.to(torch.float32)
 
 
-def prepare_model_for_training(model: "PreTrainedModel", model_args: "ModelArguments") -> None:
+def prepare_model_for_training(
+    model: "PreTrainedModel", model_args: "ModelArguments"
+) -> None:
     r"""
     Includes:
         (1) cast the layernorm in fp32
@@ -148,20 +168,31 @@ def prepare_model_for_training(model: "PreTrainedModel", model_args: "ModelArgum
 
     if not model_args.disable_gradient_checkpointing:
         if not getattr(model, "supports_gradient_checkpointing", False):
-            logger.warning_rank0("Current model does not support gradient checkpointing.")
+            logger.warning_rank0(
+                "Current model does not support gradient checkpointing."
+            )
         else:
             # use_reentrant=False might increase VRAM usage (have not been empirically verified yet)
             # According to: https://github.com/huggingface/transformers/issues/28339
             gradient_checkpointing_enable = partial(
                 _gradient_checkpointing_enable, use_unsloth_gc=model_args.use_unsloth_gc
             )
-            model.gradient_checkpointing_enable = MethodType(gradient_checkpointing_enable, model)
-            model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": True})
-            setattr(model.config, "use_cache", False)  # turn off when gradient checkpointing is enabled
+            model.gradient_checkpointing_enable = MethodType(
+                gradient_checkpointing_enable, model
+            )
+            model.gradient_checkpointing_enable(
+                gradient_checkpointing_kwargs={"use_reentrant": True}
+            )
+            setattr(
+                model.config, "use_cache", False
+            )  # turn off when gradient checkpointing is enabled
             logger.info_rank0("Gradient checkpointing enabled.")
 
     if model_args.upcast_lmhead_output:
         output_layer = model.get_output_embeddings()
-        if isinstance(output_layer, torch.nn.Linear) and output_layer.weight.dtype != torch.float32:
+        if (
+            isinstance(output_layer, torch.nn.Linear)
+            and output_layer.weight.dtype != torch.float32
+        ):
             logger.info_rank0("Upcasting lm_head outputs in float32.")
             output_layer.register_forward_hook(_fp32_forward_post_hook)

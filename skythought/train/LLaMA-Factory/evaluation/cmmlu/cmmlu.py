@@ -33,7 +33,9 @@ CMMLU is a comprehensive Chinese assessment suite specifically designed to evalu
 
 _HOMEPAGE = "https://github.com/haonan-li/CMMLU"
 
-_LICENSE = "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License"
+_LICENSE = (
+    "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License"
+)
 
 _URL = "cmmlu.zip"
 

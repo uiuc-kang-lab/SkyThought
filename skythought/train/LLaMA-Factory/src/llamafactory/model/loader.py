@@ -15,22 +15,43 @@
 from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
 
 import torch
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForVision2Seq, AutoProcessor, AutoTokenizer
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoModelForVision2Seq,
+    AutoProcessor,
+    AutoTokenizer,
+)
 from trl import AutoModelForCausalLMWithValueHead
 
 from ..extras import logging
-from ..extras.misc import count_parameters, skip_check_imports, try_download_model_from_other_hub
+from ..extras.misc import (
+    count_parameters,
+    skip_check_imports,
+    try_download_model_from_other_hub,
+)
 from .adapter import init_adapter
 from .model_utils.liger_kernel import apply_liger_kernel
 from .model_utils.misc import register_autoclass
 from .model_utils.mod import convert_pretrained_model_to_mod, load_mod_pretrained_model
 from .model_utils.unsloth import load_unsloth_pretrained_model
 from .model_utils.valuehead import load_valuehead_params
-from .patcher import patch_config, patch_model, patch_processor, patch_tokenizer, patch_valuehead_model
+from .patcher import (
+    patch_config,
+    patch_model,
+    patch_processor,
+    patch_tokenizer,
+    patch_valuehead_model,
+)
 
 
 if TYPE_CHECKING:
-    from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, ProcessorMixin
+    from transformers import (
+        PretrainedConfig,
+        PreTrainedModel,
+        PreTrainedTokenizer,
+        ProcessorMixin,
+    )
 
     from ..hparams import FinetuningArguments, ModelArguments
 
@@ -90,14 +111,20 @@ def load_tokenizer(model_args: "ModelArguments") -> "TokenizerModule":
             dict(additional_special_tokens=model_args.new_special_tokens),
             replace_additional_special_tokens=False,
         )
-        logger.info_rank0("Add {} to special tokens.".format(",".join(model_args.new_special_tokens)))
+        logger.info_rank0(
+            "Add {} to special tokens.".format(",".join(model_args.new_special_tokens))
+        )
         if num_added_tokens > 0 and not model_args.resize_vocab:
             model_args.resize_vocab = True
-            logger.warning_rank0("New tokens have been added, changed `resize_vocab` to True.")
+            logger.warning_rank0(
+                "New tokens have been added, changed `resize_vocab` to True."
+            )
 
     patch_tokenizer(tokenizer)
     try:
-        processor = AutoProcessor.from_pretrained(model_args.model_name_or_path, **init_kwargs)
+        processor = AutoProcessor.from_pretrained(
+            model_args.model_name_or_path, **init_kwargs
+        )
         patch_processor(processor, config, tokenizer, model_args)
     except Exception as e:
         logger.debug(f"Processor was not found: {e}.")
@@ -132,7 +159,12 @@ def load_model(
     init_kwargs = _get_init_kwargs(model_args)
     config = load_config(model_args)
     patch_config(config, tokenizer, model_args, init_kwargs, is_trainable)
-    apply_liger_kernel(config, model_args, is_trainable, require_logits=(finetuning_args.stage not in ["pt", "sft"]))
+    apply_liger_kernel(
+        config,
+        model_args,
+        is_trainable,
+        require_logits=(finetuning_args.stage not in ["pt", "sft"]),
+    )
 
     model = None
     lazy_load = False
@@ -149,7 +181,9 @@ def load_model(
         if model_args.mixture_of_depths == "load":
             model = load_mod_pretrained_model(**init_kwargs)
         else:
-            if type(config) in AutoModelForVision2Seq._model_mapping.keys():  # assume built-in models
+            if (
+                type(config) in AutoModelForVision2Seq._model_mapping.keys()
+            ):  # assume built-in models
                 load_class = AutoModelForVision2Seq
             else:
                 load_class = AutoModelForCausalLM
@@ -185,7 +219,10 @@ def load_model(
     if not is_trainable:
         model.requires_grad_(False)
         for param in model.parameters():
-            if param.data.dtype == torch.float32 and model_args.compute_dtype != torch.float32:
+            if (
+                param.data.dtype == torch.float32
+                and model_args.compute_dtype != torch.float32
+            ):
                 param.data = param.data.to(model_args.compute_dtype)
 
         model.eval()
@@ -194,8 +231,10 @@ def load_model(
 
     trainable_params, all_param = count_parameters(model)
     if is_trainable:
-        param_stats = "trainable params: {:,} || all params: {:,} || trainable%: {:.4f}".format(
-            trainable_params, all_param, 100 * trainable_params / all_param
+        param_stats = (
+            "trainable params: {:,} || all params: {:,} || trainable%: {:.4f}".format(
+                trainable_params, all_param, 100 * trainable_params / all_param
+            )
         )
     else:
         param_stats = f"all params: {all_param:,}"

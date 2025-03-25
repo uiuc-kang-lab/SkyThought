@@ -1,7 +1,16 @@
 import math
 from copy import deepcopy
 from io import BytesIO
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import numpy as np
 import torch
@@ -9,7 +18,11 @@ from transformers.image_utils import get_image_size, to_numpy_array
 from typing_extensions import override
 
 from ..extras.constants import IGNORE_INDEX, IMAGE_PLACEHOLDER, VIDEO_PLACEHOLDER
-from ..extras.packages import is_pillow_available, is_pyav_available, is_transformers_version_greater_than
+from ..extras.packages import (
+    is_pillow_available,
+    is_pyav_available,
+    is_transformers_version_greater_than,
+)
 
 
 if is_pillow_available():
@@ -85,7 +98,9 @@ class BasePlugin:
         image_resolution: int = kwargs.get("image_resolution")
         if (image.width * image.height) > image_resolution:
             resize_factor = math.sqrt(image_resolution / (image.width * image.height))
-            width, height = int(image.width * resize_factor), int(image.height * resize_factor)
+            width, height = int(image.width * resize_factor), int(
+                image.height * resize_factor
+            )
             image = image.resize((width, height), resample=Image.NEAREST)
 
         if image.mode != "RGB":
@@ -100,11 +115,15 @@ class BasePlugin:
         video_fps: float = kwargs.get("video_fps")
         video_maxlen: int = kwargs.get("video_maxlen")
         total_frames = video_stream.frames
-        sample_frames = float(video_stream.duration * video_stream.time_base) * video_fps
+        sample_frames = (
+            float(video_stream.duration * video_stream.time_base) * video_fps
+        )
         sample_frames = min(total_frames, video_maxlen, sample_frames)
         return math.floor(sample_frames)
 
-    def _regularize_images(self, images: Sequence["ImageInput"], **kwargs) -> List["ImageObject"]:
+    def _regularize_images(
+        self, images: Sequence["ImageInput"], **kwargs
+    ) -> List["ImageObject"]:
         r"""
         Regularizes images to avoid error. Including reading and pre-processing.
         """
@@ -121,23 +140,31 @@ class BasePlugin:
                     image = Image.open(image["path"])
 
             if not isinstance(image, ImageObject):
-                raise ValueError(f"Expect input is a list of Images, but got {type(image)}.")
+                raise ValueError(
+                    f"Expect input is a list of Images, but got {type(image)}."
+                )
 
             results.append(self._preprocess_image(image, **kwargs))
 
         return results
 
-    def _regularize_videos(self, videos: Sequence["VideoInput"], **kwargs) -> List[List["ImageObject"]]:
+    def _regularize_videos(
+        self, videos: Sequence["VideoInput"], **kwargs
+    ) -> List[List["ImageObject"]]:
         r"""
         Regularizes videos to avoid error. Including reading, resizing and converting.
         """
         results = []
         for video in videos:
             container = av.open(video, "r")
-            video_stream = next(stream for stream in container.streams if stream.type == "video")
+            video_stream = next(
+                stream for stream in container.streams if stream.type == "video"
+            )
             total_frames = video_stream.frames
             sample_frames = self._get_video_sample_frames(video_stream, **kwargs)
-            sample_indices = np.linspace(0, total_frames - 1, sample_frames).astype(np.int32)
+            sample_indices = np.linspace(0, total_frames - 1, sample_frames).astype(
+                np.int32
+            )
             frames: List["ImageObject"] = []
             container.seek(0)
             for frame_idx, frame in enumerate(container.decode(video_stream)):
@@ -168,7 +195,9 @@ class BasePlugin:
         It holds num_patches == torch.prod(image_grid_thw)
         """
         image_processor: "BaseImageProcessor" = getattr(processor, "image_processor")
-        video_processor: "BaseImageProcessor" = getattr(processor, "video_processor", image_processor)
+        video_processor: "BaseImageProcessor" = getattr(
+            processor, "video_processor", image_processor
+        )
         input_dict = {"images": None}  # default key
         if len(images) != 0:
             images = self._regularize_images(
@@ -189,10 +218,16 @@ class BasePlugin:
         mm_inputs = {}
         if image_processor != video_processor:
             if input_dict.get("images") is not None:
-                mm_inputs.update(image_processor(input_dict["images"], return_tensors="pt"))
+                mm_inputs.update(
+                    image_processor(input_dict["images"], return_tensors="pt")
+                )
             if input_dict.get("videos") is not None:
-                mm_inputs.update(video_processor(input_dict["videos"], return_tensors="pt"))
-        elif input_dict.get("images") is not None or input_dict.get("videos") is not None:  # same processor (qwen2-vl)
+                mm_inputs.update(
+                    video_processor(input_dict["videos"], return_tensors="pt")
+                )
+        elif (
+            input_dict.get("images") is not None or input_dict.get("videos") is not None
+        ):  # same processor (qwen2-vl)
             mm_inputs.update(image_processor(**input_dict, return_tensors="pt"))
 
         return mm_inputs
@@ -260,18 +295,24 @@ class LlavaPlugin(BasePlugin):
     ) -> List[Dict[str, str]]:
         self._validate_input(images, videos)
         num_image_tokens = 0
-        image_seqlen = getattr(processor, "image_seqlen") if self.expand_mm_tokens else 1
+        image_seqlen = (
+            getattr(processor, "image_seqlen") if self.expand_mm_tokens else 1
+        )
         messages = deepcopy(messages)
         for message in messages:
             content = message["content"]
             while IMAGE_PLACEHOLDER in content:
                 num_image_tokens += 1
-                content = content.replace(IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1)
+                content = content.replace(
+                    IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1
+                )
 
             message["content"] = content.replace("{{image}}", self.image_token)
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -306,26 +347,37 @@ class LlavaNextPlugin(BasePlugin):
             image_sizes = iter(mm_inputs["image_sizes"])
 
         if "pixel_values" in mm_inputs:
-            height, width = get_image_size(to_numpy_array(mm_inputs["pixel_values"][0][0]))
+            height, width = get_image_size(
+                to_numpy_array(mm_inputs["pixel_values"][0][0])
+            )
 
         for message in messages:
             content = message["content"]
             while IMAGE_PLACEHOLDER in content:
                 if self.expand_mm_tokens:
                     orig_height, orig_width = next(image_sizes)
-                    image_seqlen = processor._get_number_of_features(orig_height, orig_width, height, width)
-                    if getattr(processor, "vision_feature_select_strategy") == "default":
+                    image_seqlen = processor._get_number_of_features(
+                        orig_height, orig_width, height, width
+                    )
+                    if (
+                        getattr(processor, "vision_feature_select_strategy")
+                        == "default"
+                    ):
                         image_seqlen -= 1
                 else:
                     image_seqlen = 1
 
                 num_image_tokens += 1
-                content = content.replace(IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1)
+                content = content.replace(
+                    IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1
+                )
 
             message["content"] = content.replace("{{image}}", self.image_token)
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -358,43 +410,64 @@ class LlavaNextVideoPlugin(BasePlugin):
         mm_inputs = self._get_mm_inputs(images, videos, processor)
         if "pixel_values" in mm_inputs:
             image_sizes = iter(mm_inputs["image_sizes"])
-            height, width = get_image_size(to_numpy_array(mm_inputs["pixel_values"][0][0]))
+            height, width = get_image_size(
+                to_numpy_array(mm_inputs["pixel_values"][0][0])
+            )
             for message in messages:
                 content = message["content"]
                 while IMAGE_PLACEHOLDER in content:
                     if self.expand_mm_tokens:
                         orig_height, orig_width = next(image_sizes)
-                        image_seqlen = processor._get_number_of_features(orig_height, orig_width, height, width)
-                        if getattr(processor, "vision_feature_select_strategy") == "default":
+                        image_seqlen = processor._get_number_of_features(
+                            orig_height, orig_width, height, width
+                        )
+                        if (
+                            getattr(processor, "vision_feature_select_strategy")
+                            == "default"
+                        ):
                             image_seqlen -= 1
                     else:
                         image_seqlen = 1
 
                     num_image_tokens += 1
-                    content = content.replace(IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1)
+                    content = content.replace(
+                        IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1
+                    )
 
                 message["content"] = content.replace("{{image}}", self.image_token)
 
         if "pixel_values_videos" in mm_inputs:
             pixel_values_video = to_numpy_array(mm_inputs.get("pixel_values_videos")[0])
             height, width = get_image_size(pixel_values_video[0])
-            num_frames = pixel_values_video.shape[0]  # frame dim is always after batch dim
-            image_seqlen = (height // processor.patch_size) * (width // processor.patch_size)
-            video_seqlen = image_seqlen // 4 * num_frames  # divide by 4 needed for avg pooling layer
+            num_frames = pixel_values_video.shape[
+                0
+            ]  # frame dim is always after batch dim
+            image_seqlen = (height // processor.patch_size) * (
+                width // processor.patch_size
+            )
+            video_seqlen = (
+                image_seqlen // 4 * num_frames
+            )  # divide by 4 needed for avg pooling layer
             video_seqlen = video_seqlen if self.expand_mm_tokens else 1
             for message in messages:
                 content = message["content"]
                 while VIDEO_PLACEHOLDER in content:
                     num_video_tokens += 1
-                    content = content.replace(VIDEO_PLACEHOLDER, "{{video}}" * video_seqlen, 1)
+                    content = content.replace(
+                        VIDEO_PLACEHOLDER, "{{video}}" * video_seqlen, 1
+                    )
 
                 message["content"] = content.replace("{{video}}", self.video_token)
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         if len(videos) != num_video_tokens:
-            raise ValueError(f"The number of videos does not match the number of {VIDEO_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of videos does not match the number of {VIDEO_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -433,7 +506,9 @@ class PaliGemmaPlugin(BasePlugin):
             message["content"] = content.replace("{{image}}", "")
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -449,7 +524,11 @@ class PaliGemmaPlugin(BasePlugin):
     ) -> Tuple[List[int], Optional[List[int]]]:
         self._validate_input(images, videos)
         num_images = len(images)
-        image_seqlen = num_images * getattr(processor, "image_seqlen") if self.expand_mm_tokens else 0  # skip mm token
+        image_seqlen = (
+            num_images * getattr(processor, "image_seqlen")
+            if self.expand_mm_tokens
+            else 0
+        )  # skip mm token
         image_token_id = tokenizer.convert_tokens_to_ids(self.image_token)
         input_ids = [image_token_id] * image_seqlen + input_ids
         if labels is not None:
@@ -470,7 +549,9 @@ class PaliGemmaPlugin(BasePlugin):
         self._validate_input(images, videos)
         seqlens = [len(input_ids) for input_ids in batch_ids]
         mm_inputs = self._get_mm_inputs(images, videos, processor)
-        mm_inputs["token_type_ids"] = _get_paligemma_token_type_ids(imglens, seqlens, processor)
+        mm_inputs["token_type_ids"] = _get_paligemma_token_type_ids(
+            imglens, seqlens, processor
+        )
         return mm_inputs
 
 
@@ -504,8 +585,12 @@ class PixtralPlugin(BasePlugin):
                     height, width = image_size
                     num_height_tokens = height // patch_size
                     num_width_tokens = width // patch_size
-                    replace_tokens = [[image_token] * num_width_tokens + [image_break_token]] * num_height_tokens
-                    replace_tokens = [item for sublist in replace_tokens for item in sublist]  # flatten list
+                    replace_tokens = [
+                        [image_token] * num_width_tokens + [image_break_token]
+                    ] * num_height_tokens
+                    replace_tokens = [
+                        item for sublist in replace_tokens for item in sublist
+                    ]  # flatten list
                     replace_tokens[-1] = image_end_token
                     replace_str = "".join(replace_tokens)
                 else:
@@ -517,7 +602,9 @@ class PixtralPlugin(BasePlugin):
             message["content"] = content
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -559,14 +646,20 @@ class Qwen2vlPlugin(BasePlugin):
         return image
 
     @override
-    def _regularize_videos(self, videos: Sequence["VideoInput"], **kwargs) -> List[List["ImageObject"]]:
+    def _regularize_videos(
+        self, videos: Sequence["VideoInput"], **kwargs
+    ) -> List[List["ImageObject"]]:
         results = []
         for video in videos:
             container = av.open(video, "r")
-            video_stream = next(stream for stream in container.streams if stream.type == "video")
+            video_stream = next(
+                stream for stream in container.streams if stream.type == "video"
+            )
             total_frames = video_stream.frames
             sample_frames = self._get_video_sample_frames(video_stream, **kwargs)
-            sample_indices = np.linspace(0, total_frames - 1, sample_frames).astype(np.int32)
+            sample_indices = np.linspace(0, total_frames - 1, sample_frames).astype(
+                np.int32
+            )
             frames: List["ImageObject"] = []
             container.seek(0)
             for frame_idx, frame in enumerate(container.decode(video_stream)):
@@ -602,31 +695,51 @@ class Qwen2vlPlugin(BasePlugin):
             content = message["content"]
             while IMAGE_PLACEHOLDER in content:
                 if num_image_tokens >= len(image_grid_thw):
-                    raise ValueError(f"`len(images)` is less than the number of {IMAGE_PLACEHOLDER} tokens.")
+                    raise ValueError(
+                        f"`len(images)` is less than the number of {IMAGE_PLACEHOLDER} tokens."
+                    )
 
-                image_seqlen = image_grid_thw[num_image_tokens].prod() // merge_length if self.expand_mm_tokens else 1
+                image_seqlen = (
+                    image_grid_thw[num_image_tokens].prod() // merge_length
+                    if self.expand_mm_tokens
+                    else 1
+                )
                 content = content.replace(
-                    IMAGE_PLACEHOLDER, f"<|vision_start|>{self.image_token * image_seqlen}<|vision_end|>", 1
+                    IMAGE_PLACEHOLDER,
+                    f"<|vision_start|>{self.image_token * image_seqlen}<|vision_end|>",
+                    1,
                 )
                 num_image_tokens += 1
 
             while VIDEO_PLACEHOLDER in content:
                 if num_video_tokens >= len(video_grid_thw):
-                    raise ValueError(f"`len(videos)` is less than the number of {VIDEO_PLACEHOLDER} tokens.")
+                    raise ValueError(
+                        f"`len(videos)` is less than the number of {VIDEO_PLACEHOLDER} tokens."
+                    )
 
-                video_seqlen = video_grid_thw[num_video_tokens].prod() // merge_length if self.expand_mm_tokens else 1
+                video_seqlen = (
+                    video_grid_thw[num_video_tokens].prod() // merge_length
+                    if self.expand_mm_tokens
+                    else 1
+                )
                 content = content.replace(
-                    VIDEO_PLACEHOLDER, f"<|vision_start|>{self.video_token * video_seqlen}<|vision_end|>", 1
+                    VIDEO_PLACEHOLDER,
+                    f"<|vision_start|>{self.video_token * video_seqlen}<|vision_end|>",
+                    1,
                 )
                 num_video_tokens += 1
 
             message["content"] = content
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         if len(videos) != num_video_tokens:
-            raise ValueError(f"The number of videos does not match the number of {VIDEO_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of videos does not match the number of {VIDEO_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -663,15 +776,23 @@ class VideoLlavaPlugin(BasePlugin):
         if has_images or has_videos:
             if self.expand_mm_tokens:
                 if has_images:
-                    height, width = get_image_size(to_numpy_array(mm_inputs.get("pixel_values_images")[0]))
+                    height, width = get_image_size(
+                        to_numpy_array(mm_inputs.get("pixel_values_images")[0])
+                    )
                     num_frames = 1
 
                 if has_videos:
-                    pixel_values_video = to_numpy_array(mm_inputs.get("pixel_values_videos")[0])
+                    pixel_values_video = to_numpy_array(
+                        mm_inputs.get("pixel_values_videos")[0]
+                    )
                     height, width = get_image_size(pixel_values_video[0])
-                    num_frames = pixel_values_video.shape[0]  # frame dim is always after batch dim
+                    num_frames = pixel_values_video.shape[
+                        0
+                    ]  # frame dim is always after batch dim
 
-                image_seqlen = (height // processor.patch_size) * (width // processor.patch_size) + 1
+                image_seqlen = (height // processor.patch_size) * (
+                    width // processor.patch_size
+                ) + 1
                 video_seqlen = image_seqlen * num_frames
                 if getattr(processor, "vision_feature_select_strategy") == "default":
                     image_seqlen -= 1
@@ -682,20 +803,28 @@ class VideoLlavaPlugin(BasePlugin):
                 content = message["content"]
                 while IMAGE_PLACEHOLDER in content:
                     num_image_tokens += 1
-                    content = content.replace(IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1)
+                    content = content.replace(
+                        IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1
+                    )
 
                 while VIDEO_PLACEHOLDER in content:
                     num_video_tokens += 1
-                    content = content.replace(VIDEO_PLACEHOLDER, "{{video}}" * video_seqlen, 1)
+                    content = content.replace(
+                        VIDEO_PLACEHOLDER, "{{video}}" * video_seqlen, 1
+                    )
 
                 content = content.replace("{{image}}", self.image_token)
                 message["content"] = content.replace("{{video}}", self.video_token)
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         if len(videos) != num_video_tokens:
-            raise ValueError(f"The number of videos does not match the number of {VIDEO_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of videos does not match the number of {VIDEO_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -731,7 +860,9 @@ class MllamaPlugin(BasePlugin):
             message["content"] = content.replace(IMAGE_PLACEHOLDER, self.image_token)
 
         if len(images) != num_image_tokens:
-            raise ValueError(f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {IMAGE_PLACEHOLDER} tokens."
+            )
 
         return messages
 
@@ -754,7 +885,9 @@ class MllamaPlugin(BasePlugin):
             num_tiles: List[List[int]] with shape (batch_size, num_images_in_batch). For example, (2, 1).
         """
         image_processor: "BaseImageProcessor" = getattr(processor, "image_processor")
-        images = self._regularize_images(images, image_resolution=getattr(processor, "image_resolution", 512 * 512))
+        images = self._regularize_images(
+            images, image_resolution=getattr(processor, "image_resolution", 512 * 512)
+        )
         return image_processor([[image] for image in images], return_tensors="pt")
 
     def get_mm_inputs(
@@ -775,7 +908,8 @@ class MllamaPlugin(BasePlugin):
         image_token_id = getattr(processor, "image_token_id")
         max_image_tiles = getattr(processor.image_processor, "max_image_tiles")
         cross_attention_token_mask = [
-            get_cross_attention_token_mask(input_ids, image_token_id) for input_ids in batch_ids
+            get_cross_attention_token_mask(input_ids, image_token_id)
+            for input_ids in batch_ids
         ]
         mm_inputs["cross_attention_mask"] = torch.from_numpy(
             convert_sparse_cross_attention_mask_to_dense(

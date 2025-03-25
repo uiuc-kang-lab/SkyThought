@@ -49,7 +49,9 @@ def length_cdf(
     )
     tokenizer_module = load_tokenizer(model_args)
     template = get_template_and_fix_tokenizer(tokenizer_module["tokenizer"], data_args)
-    trainset = get_dataset(template, model_args, data_args, training_args, "sft", **tokenizer_module)["train_dataset"]
+    trainset = get_dataset(
+        template, model_args, data_args, training_args, "sft", **tokenizer_module
+    )["train_dataset"]
     total_num = len(trainset)
     length_dict = defaultdict(int)
     for sample in tqdm(trainset["input_ids"]):
@@ -61,7 +63,9 @@ def length_cdf(
     for length, count in length_tuples:
         count_accu += count
         prob_accu += count / total_num * 100
-        print(f"{count_accu:d} ({prob_accu:.2f}%) samples have length < {length + interval}.")
+        print(
+            f"{count_accu:d} ({prob_accu:.2f}%) samples have length < {length + interval}."
+        )
 
 
 if __name__ == "__main__":

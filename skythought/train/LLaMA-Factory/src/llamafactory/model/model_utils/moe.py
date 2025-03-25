@@ -25,7 +25,9 @@ if TYPE_CHECKING:
     from ...hparams import ModelArguments
 
 
-def _set_z3_leaf_modules(model: "PreTrainedModel", leaf_modules: Sequence["torch.nn.Module"]) -> None:
+def _set_z3_leaf_modules(
+    model: "PreTrainedModel", leaf_modules: Sequence["torch.nn.Module"]
+) -> None:
     require_version("deepspeed>=0.13.0", "To fix: pip install deepspeed>=0.13.0")
     from deepspeed.utils import set_z3_leaf_modules  # type: ignore
 
@@ -61,12 +63,16 @@ def add_z3_leaf_module(model: "PreTrainedModel") -> None:
         _set_z3_leaf_modules(model, [MixtralSparseMoeBlock])
 
     if model_type == "qwen2moe":
-        from transformers.models.qwen2_moe.modeling_qwen2_moe import Qwen2MoeSparseMoeBlock
+        from transformers.models.qwen2_moe.modeling_qwen2_moe import (
+            Qwen2MoeSparseMoeBlock,
+        )
 
         _set_z3_leaf_modules(model, [Qwen2MoeSparseMoeBlock])
 
 
-def configure_moe(config: "PretrainedConfig", model_args: "ModelArguments", is_trainable: bool) -> None:
+def configure_moe(
+    config: "PretrainedConfig", model_args: "ModelArguments", is_trainable: bool
+) -> None:
     model_type = getattr(config, "model_type", None)
     if model_args.moe_aux_loss_coef is not None:
         if model_type in ["jamba", "mixtral", "qwen2_moe"]:

@@ -44,4 +44,7 @@ def test_attention():
         model = load_infer_model(flash_attn=requested_attention, **INFER_ARGS)
         for module in model.modules():
             if "Attention" in module.__class__.__name__:
-                assert module.__class__.__name__ == llama_attention_classes[requested_attention]
+                assert (
+                    module.__class__.__name__
+                    == llama_attention_classes[requested_attention]
+                )

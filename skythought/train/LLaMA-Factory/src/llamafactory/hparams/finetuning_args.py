@@ -72,7 +72,9 @@ class LoraArguments:
     )
     lora_alpha: Optional[int] = field(
         default=None,
-        metadata={"help": "The scale factor for LoRA fine-tuning (default: lora_rank * 2)."},
+        metadata={
+            "help": "The scale factor for LoRA fine-tuning (default: lora_rank * 2)."
+        },
     )
     lora_dropout: float = field(
         default=0.0,
@@ -102,11 +104,15 @@ class LoraArguments:
     )
     use_rslora: bool = field(
         default=False,
-        metadata={"help": "Whether or not to use the rank stabilization scaling factor for LoRA layer."},
+        metadata={
+            "help": "Whether or not to use the rank stabilization scaling factor for LoRA layer."
+        },
     )
     use_dora: bool = field(
         default=False,
-        metadata={"help": "Whether or not to use the weight-decomposed lora method (DoRA)."},
+        metadata={
+            "help": "Whether or not to use the weight-decomposed lora method (DoRA)."
+        },
     )
     pissa_init: bool = field(
         default=False,
@@ -114,15 +120,21 @@ class LoraArguments:
     )
     pissa_iter: int = field(
         default=16,
-        metadata={"help": "The number of iteration steps performed by FSVD in PiSSA. Use -1 to disable it."},
+        metadata={
+            "help": "The number of iteration steps performed by FSVD in PiSSA. Use -1 to disable it."
+        },
     )
     pissa_convert: bool = field(
         default=False,
-        metadata={"help": "Whether or not to convert the PiSSA adapter to a normal LoRA adapter."},
+        metadata={
+            "help": "Whether or not to convert the PiSSA adapter to a normal LoRA adapter."
+        },
     )
     create_new_adapter: bool = field(
         default=False,
-        metadata={"help": "Whether or not to create a new adapter with randomly initialized weight."},
+        metadata={
+            "help": "Whether or not to create a new adapter with randomly initialized weight."
+        },
     )
 
 
@@ -138,7 +150,9 @@ class RLHFArguments:
     )
     pref_ftx: float = field(
         default=0.0,
-        metadata={"help": "The supervised fine-tuning loss coefficient in DPO training."},
+        metadata={
+            "help": "The supervised fine-tuning loss coefficient in DPO training."
+        },
     )
     pref_loss: Literal["sigmoid", "hinge", "ipo", "kto_pair", "orpo", "simpo"] = field(
         default="sigmoid",
@@ -146,7 +160,9 @@ class RLHFArguments:
     )
     dpo_label_smoothing: float = field(
         default=0.0,
-        metadata={"help": "The robust DPO label smoothing parameter in cDPO that should be between 0 and 0.5."},
+        metadata={
+            "help": "The robust DPO label smoothing parameter in cDPO that should be between 0 and 0.5."
+        },
     )
     kto_chosen_weight: float = field(
         default=1.0,
@@ -154,7 +170,9 @@ class RLHFArguments:
     )
     kto_rejected_weight: float = field(
         default=1.0,
-        metadata={"help": "The weight factor of the undesirable losses in KTO training."},
+        metadata={
+            "help": "The weight factor of the undesirable losses in KTO training."
+        },
     )
     simpo_gamma: float = field(
         default=0.5,
@@ -162,11 +180,15 @@ class RLHFArguments:
     )
     ppo_buffer_size: int = field(
         default=1,
-        metadata={"help": "The number of mini-batches to make experience buffer in a PPO optimization step."},
+        metadata={
+            "help": "The number of mini-batches to make experience buffer in a PPO optimization step."
+        },
     )
     ppo_epochs: int = field(
         default=4,
-        metadata={"help": "The number of epochs to perform in a PPO optimization step."},
+        metadata={
+            "help": "The number of epochs to perform in a PPO optimization step."
+        },
     )
     ppo_score_norm: bool = field(
         default=False,
@@ -178,11 +200,15 @@ class RLHFArguments:
     )
     ppo_whiten_rewards: bool = field(
         default=False,
-        metadata={"help": "Whiten the rewards before compute advantages in PPO training."},
+        metadata={
+            "help": "Whiten the rewards before compute advantages in PPO training."
+        },
     )
     ref_model: Optional[str] = field(
         default=None,
-        metadata={"help": "Path to the reference model used for the PPO or DPO training."},
+        metadata={
+            "help": "Path to the reference model used for the PPO or DPO training."
+        },
     )
     ref_model_adapters: Optional[str] = field(
         default=None,
@@ -206,7 +232,9 @@ class RLHFArguments:
     )
     reward_model_type: Literal["lora", "full", "api"] = field(
         default="lora",
-        metadata={"help": "The type of the reward model in PPO training. Lora model only supports lora training."},
+        metadata={
+            "help": "The type of the reward model in PPO training. Lora model only supports lora training."
+        },
     )
 
 
@@ -218,7 +246,9 @@ class GaloreArguments:
 
     use_galore: bool = field(
         default=False,
-        metadata={"help": "Whether or not to use the gradient low-Rank projection (GaLore)."},
+        metadata={
+            "help": "Whether or not to use the gradient low-Rank projection (GaLore)."
+        },
     )
     galore_target: str = field(
         default="all",
@@ -247,7 +277,9 @@ class GaloreArguments:
     )
     galore_layerwise: bool = field(
         default=False,
-        metadata={"help": "Whether or not to enable layer-wise update to further save memory."},
+        metadata={
+            "help": "Whether or not to enable layer-wise update to further save memory."
+        },
     )
 
 
@@ -269,9 +301,13 @@ class BAdamArgument:
         default=None,
         metadata={"help": "The starting block index for layer-wise BAdam."},
     )
-    badam_switch_mode: Optional[Literal["ascending", "descending", "random", "fixed"]] = field(
+    badam_switch_mode: Optional[
+        Literal["ascending", "descending", "random", "fixed"]
+    ] = field(
         default="ascending",
-        metadata={"help": "the strategy of picking block to update for layer-wise BAdam."},
+        metadata={
+            "help": "the strategy of picking block to update for layer-wise BAdam."
+        },
     )
     badam_switch_interval: Optional[int] = field(
         default=50,
@@ -305,14 +341,18 @@ class BAdamArgument:
 
 
 @dataclass
-class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreArguments, BAdamArgument):
+class FinetuningArguments(
+    FreezeArguments, LoraArguments, RLHFArguments, GaloreArguments, BAdamArgument
+):
     r"""
     Arguments pertaining to which techniques we are going to fine-tuning with.
     """
 
     pure_bf16: bool = field(
         default=False,
-        metadata={"help": "Whether or not to train model in purely bf16 precision (without AMP)."},
+        metadata={
+            "help": "Whether or not to train model in purely bf16 precision (without AMP)."
+        },
     )
     stage: Literal["pt", "sft", "rm", "ppo", "dpo", "kto"] = field(
         default="sft",
@@ -324,7 +364,9 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
     )
     use_llama_pro: bool = field(
         default=False,
-        metadata={"help": "Whether or not to make only the parameters in the expanded blocks trainable."},
+        metadata={
+            "help": "Whether or not to make only the parameters in the expanded blocks trainable."
+        },
     )
     use_adam_mini: bool = field(
         default=False,
@@ -336,11 +378,15 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
     )
     train_mm_proj_only: bool = field(
         default=False,
-        metadata={"help": "Whether or not to train the multimodal projector for MLLM only."},
+        metadata={
+            "help": "Whether or not to train the multimodal projector for MLLM only."
+        },
     )
     compute_accuracy: bool = field(
         default=False,
-        metadata={"help": "Whether or not to compute the token-level accuracy at evaluation."},
+        metadata={
+            "help": "Whether or not to compute the token-level accuracy at evaluation."
+        },
     )
     plot_loss: bool = field(
         default=False,
@@ -357,30 +403,63 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
                 return [item.strip() for item in arg.split(",")]
             return arg
 
-        self.freeze_trainable_modules: List[str] = split_arg(self.freeze_trainable_modules)
-        self.freeze_extra_modules: Optional[List[str]] = split_arg(self.freeze_extra_modules)
+        self.freeze_trainable_modules: List[str] = split_arg(
+            self.freeze_trainable_modules
+        )
+        self.freeze_extra_modules: Optional[List[str]] = split_arg(
+            self.freeze_extra_modules
+        )
         self.lora_alpha: int = self.lora_alpha or self.lora_rank * 2
         self.lora_target: List[str] = split_arg(self.lora_target)
         self.additional_target: Optional[List[str]] = split_arg(self.additional_target)
         self.galore_target: List[str] = split_arg(self.galore_target)
         self.freeze_vision_tower = self.freeze_vision_tower or self.train_mm_proj_only
-        self.use_ref_model = self.stage == "dpo" and self.pref_loss not in ["orpo", "simpo"]
+        self.use_ref_model = self.stage == "dpo" and self.pref_loss not in [
+            "orpo",
+            "simpo",
+        ]
 
-        assert self.finetuning_type in ["lora", "freeze", "full"], "Invalid fine-tuning method."
-        assert self.ref_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
-        assert self.reward_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
+        assert self.finetuning_type in [
+            "lora",
+            "freeze",
+            "full",
+        ], "Invalid fine-tuning method."
+        assert self.ref_model_quantization_bit in [
+            None,
+            8,
+            4,
+        ], "We only accept 4-bit or 8-bit quantization."
+        assert self.reward_model_quantization_bit in [
+            None,
+            8,
+            4,
+        ], "We only accept 4-bit or 8-bit quantization."
 
         if self.stage == "ppo" and self.reward_model is None:
             raise ValueError("`reward_model` is necessary for PPO training.")
 
-        if self.stage == "ppo" and self.reward_model_type == "lora" and self.finetuning_type != "lora":
-            raise ValueError("`reward_model_type` cannot be lora for Freeze/Full PPO training.")
+        if (
+            self.stage == "ppo"
+            and self.reward_model_type == "lora"
+            and self.finetuning_type != "lora"
+        ):
+            raise ValueError(
+                "`reward_model_type` cannot be lora for Freeze/Full PPO training."
+            )
 
-        if self.stage == "dpo" and self.pref_loss != "sigmoid" and self.dpo_label_smoothing > 1e-6:
-            raise ValueError("`dpo_label_smoothing` is only valid for sigmoid loss function.")
+        if (
+            self.stage == "dpo"
+            and self.pref_loss != "sigmoid"
+            and self.dpo_label_smoothing > 1e-6
+        ):
+            raise ValueError(
+                "`dpo_label_smoothing` is only valid for sigmoid loss function."
+            )
 
         if self.use_llama_pro and self.finetuning_type == "full":
-            raise ValueError("`use_llama_pro` is only valid for Freeze or LoRA training.")
+            raise ValueError(
+                "`use_llama_pro` is only valid for Freeze or LoRA training."
+            )
 
         if self.finetuning_type == "lora" and (self.use_galore or self.use_badam):
             raise ValueError("Cannot use LoRA with GaLore or BAdam together.")

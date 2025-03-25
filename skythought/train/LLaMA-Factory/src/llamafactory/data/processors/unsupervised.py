@@ -53,7 +53,9 @@ def _encode_unsupervised_example(
     if template.efficient_eos:
         labels += [tokenizer.eos_token_id]
 
-    input_ids, _ = template.mm_plugin.process_token_ids(input_ids, None, images, videos, tokenizer, processor)
+    input_ids, _ = template.mm_plugin.process_token_ids(
+        input_ids, None, images, videos, tokenizer, processor
+    )
     source_len, target_len = infer_seqlen(len(input_ids), len(labels), cutoff_len)
     input_ids = input_ids[:source_len]
     labels = labels[:target_len]
@@ -72,7 +74,9 @@ def preprocess_unsupervised_dataset(
     for i in range(len(examples["_prompt"])):
         if len(examples["_prompt"][i]) % 2 != 1:
             logger.warning_rank0(
-                "Dropped invalid example: {}".format(examples["_prompt"][i] + examples["_response"][i])
+                "Dropped invalid example: {}".format(
+                    examples["_prompt"][i] + examples["_response"][i]
+                )
             )
             continue
 
@@ -97,6 +101,12 @@ def preprocess_unsupervised_dataset(
     return model_inputs
 
 
-def print_unsupervised_dataset_example(example: Dict[str, List[int]], tokenizer: "PreTrainedTokenizer") -> None:
+def print_unsupervised_dataset_example(
+    example: Dict[str, List[int]], tokenizer: "PreTrainedTokenizer"
+) -> None:
     print("input_ids:\n{}".format(example["input_ids"]))
-    print("inputs:\n{}".format(tokenizer.decode(example["input_ids"], skip_special_tokens=False)))
+    print(
+        "inputs:\n{}".format(
+            tokenizer.decode(example["input_ids"], skip_special_tokens=False)
+        )
+    )

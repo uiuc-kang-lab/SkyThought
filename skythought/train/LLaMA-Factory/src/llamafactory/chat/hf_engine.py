@@ -16,7 +16,18 @@ import asyncio
 import concurrent.futures
 import os
 from threading import Thread
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import torch
 from transformers import GenerationConfig, TextIteratorStreamer
@@ -36,7 +47,12 @@ if TYPE_CHECKING:
 
     from ..data import Template
     from ..data.mm_plugin import ImageInput, VideoInput
-    from ..hparams import DataArguments, FinetuningArguments, GeneratingArguments, ModelArguments
+    from ..hparams import (
+        DataArguments,
+        FinetuningArguments,
+        GeneratingArguments,
+        ModelArguments,
+    )
 
 
 logger = logging.get_logger(__name__)
@@ -57,7 +73,11 @@ class HuggingfaceEngine(BaseEngine):
         self.tokenizer.padding_side = "left" if self.can_generate else "right"
         self.template = get_template_and_fix_tokenizer(self.tokenizer, data_args)
         self.model = load_model(
-            self.tokenizer, model_args, finetuning_args, is_trainable=False, add_valuehead=(not self.can_generate)
+            self.tokenizer,
+            model_args,
+            finetuning_args,
+            is_trainable=False,
+            add_valuehead=(not self.can_generate),
         )  # must after fixing tokenizer to resize vocab
         self.generating_args = generating_args.to_dict()
         try:
@@ -87,21 +107,32 @@ class HuggingfaceEngine(BaseEngine):
         if images is not None:
             mm_input_dict.update({"images": images, "imglens": [len(images)]})
             if not any(IMAGE_PLACEHOLDER in message["content"] for message in messages):
-                messages[0]["content"] = IMAGE_PLACEHOLDER * len(images) + messages[0]["content"]
+                messages[0]["content"] = (
+                    IMAGE_PLACEHOLDER * len(images) + messages[0]["content"]
+                )
 
         if videos is not None:
             mm_input_dict.update({"videos": videos, "vidlens": [len(videos)]})
             if not any(VIDEO_PLACEHOLDER in message["content"] for message in messages):
-                messages[0]["content"] = VIDEO_PLACEHOLDER * len(videos) + messages[0]["content"]
+                messages[0]["content"] = (
+                    VIDEO_PLACEHOLDER * len(videos) + messages[0]["content"]
+                )
 
         messages = template.mm_plugin.process_messages(
             messages, mm_input_dict["images"], mm_input_dict["videos"], processor
         )
         paired_messages = messages + [{"role": "assistant", "content": ""}]
         system = system or generating_args["default_system"]
-        prompt_ids, _ = template.encode_oneturn(tokenizer, paired_messages, system, tools)
+        prompt_ids, _ = template.encode_oneturn(
+            tokenizer, paired_messages, system, tools
+        )
         prompt_ids, _ = template.mm_plugin.process_token_ids(
-            prompt_ids, None, mm_input_dict["images"], mm_input_dict["videos"], tokenizer, processor
+            prompt_ids,
+            None,
+            mm_input_dict["images"],
+            mm_input_dict["videos"],
+            tokenizer,
+            processor,
         )
         prompt_length = len(prompt_ids)
         inputs = torch.tensor([prompt_ids], device=model.device)
@@ -112,33 +143,46 @@ class HuggingfaceEngine(BaseEngine):
         top_p: Optional[float] = input_kwargs.pop("top_p", None)
         top_k: Optional[float] = input_kwargs.pop("top_k", None)
         num_return_sequences: int = input_kwargs.pop("num_return_sequences", 1)
-        repetition_penalty: Optional[float] = input_kwargs.pop("repetition_penalty", None)
+        repetition_penalty: Optional[float] = input_kwargs.pop(
+            "repetition_penalty", None
+        )
         length_penalty: Optional[float] = input_kwargs.pop("length_penalty", None)
         max_length: Optional[int] = input_kwargs.pop("max_length", None)
         max_new_tokens: Optional[int] = input_kwargs.pop("max_new_tokens", None)
         stop: Optional[Union[str, List[str]]] = input_kwargs.pop("stop", None)
 
         if stop is not None:
-            logger.warning_rank0("Stop parameter is not supported by the huggingface engine yet.")
+            logger.warning_rank0(
+                "Stop parameter is not supported by the huggingface engine yet."
+            )
 
         generating_args = generating_args.copy()
         generating_args.update(
             dict(
-                do_sample=do_sample if do_sample is not None else generating_args["do_sample"],
-                temperature=temperature if temperature is not None else generating_args["temperature"],
+                do_sample=do_sample
+                if do_sample is not None
+                else generating_args["do_sample"],
+                temperature=temperature
+                if temperature is not None
+                else generating_args["temperature"],
                 top_p=top_p if top_p is not None else generating_args["top_p"],
                 top_k=top_k if top_k is not None else generating_args["top_k"],
                 num_return_sequences=num_return_sequences,
                 repetition_penalty=repetition_penalty
                 if repetition_penalty is not None
                 else generating_args["repetition_penalty"],
-                length_penalty=length_penalty if length_penalty is not None else generating_args["length_penalty"],
-                eos_token_id=[tokenizer.eos_token_id] + tokenizer.additional_special_tokens_ids,
+                length_penalty=length_penalty
+                if length_penalty is not None
+                else generating_args["length_penalty"],
+                eos_token_id=[tokenizer.eos_token_id]
+                + tokenizer.additional_special_tokens_ids,
                 pad_token_id=tokenizer.pad_token_id,
             )
         )
 
-        if isinstance(num_return_sequences, int) and num_return_sequences > 1:  # do_sample needs temperature > 0
+        if (
+            isinstance(num_return_sequences, int) and num_return_sequences > 1
+        ):  # do_sample needs temperature > 0
             generating_args["do_sample"] = True
             generating_args["temperature"] = generating_args["temperature"] or 1.0
 
@@ -164,9 +208,13 @@ class HuggingfaceEngine(BaseEngine):
             logits_processor=get_logits_processor(),
         )
 
-        mm_inputs = template.mm_plugin.get_mm_inputs(**mm_input_dict, batch_ids=[prompt_ids], processor=processor)
+        mm_inputs = template.mm_plugin.get_mm_inputs(
+            **mm_input_dict, batch_ids=[prompt_ids], processor=processor
+        )
         for key, value in mm_inputs.items():
-            if isinstance(value, list) and all(isinstance(v, torch.Tensor) for v in value):  # for pixtral inputs
+            if isinstance(value, list) and all(
+                isinstance(v, torch.Tensor) for v in value
+            ):  # for pixtral inputs
                 value = torch.stack(value)  # assume they have same sizes
             elif not isinstance(value, torch.Tensor):
                 value = torch.tensor(value)
@@ -205,11 +253,15 @@ class HuggingfaceEngine(BaseEngine):
         )
         generate_output = model.generate(**gen_kwargs)
         response_ids = generate_output[:, prompt_length:]
-        response = tokenizer.batch_decode(response_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        response = tokenizer.batch_decode(
+            response_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True
+        )
         results = []
         for i in range(len(response)):
             eos_index = (response_ids[i] == tokenizer.eos_token_id).nonzero()
-            response_length = (eos_index[0].item() + 1) if len(eos_index) else len(response_ids[i])
+            response_length = (
+                (eos_index[0].item() + 1) if len(eos_index) else len(response_ids[i])
+            )
             results.append(
                 Response(
                     response_text=response[i],
@@ -249,7 +301,9 @@ class HuggingfaceEngine(BaseEngine):
             videos,
             input_kwargs,
         )
-        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        streamer = TextIteratorStreamer(
+            tokenizer, skip_prompt=True, skip_special_tokens=True
+        )
         gen_kwargs["streamer"] = streamer
         thread = Thread(target=model.generate, kwargs=gen_kwargs, daemon=True)
         thread.start()
@@ -276,12 +330,15 @@ class HuggingfaceEngine(BaseEngine):
             batch_input,
             padding=True,
             truncation=True,
-            max_length=max_length or getattr(model.config, "max_position_embeddings", 1024),
+            max_length=max_length
+            or getattr(model.config, "max_position_embeddings", 1024),
             return_tensors="pt",
             add_special_tokens=False,
         ).to(device)
         values: "torch.Tensor" = model(**inputs, return_dict=True, use_cache=False)[-1]
-        scores = values.gather(dim=-1, index=(inputs["attention_mask"].sum(dim=-1, keepdim=True) - 1))
+        scores = values.gather(
+            dim=-1, index=(inputs["attention_mask"].sum(dim=-1, keepdim=True) - 1)
+        )
         return scores
 
     @override

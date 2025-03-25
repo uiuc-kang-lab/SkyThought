@@ -55,7 +55,9 @@ def test_unsupervised_data(num_samples: int):
     for index in indexes:
         messages = original_data["messages"][index]
         ref_ids = ref_tokenizer.apply_chat_template(messages)
-        ref_input_ids = ref_tokenizer.apply_chat_template(messages[:-1], add_generation_prompt=True)
+        ref_input_ids = ref_tokenizer.apply_chat_template(
+            messages[:-1], add_generation_prompt=True
+        )
         ref_labels = ref_ids[len(ref_input_ids) :]
         assert train_dataset["input_ids"][index] == ref_input_ids
         assert train_dataset["labels"][index] == ref_labels

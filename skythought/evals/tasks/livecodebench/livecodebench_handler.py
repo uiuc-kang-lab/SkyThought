@@ -15,7 +15,6 @@ from .livecodebench_util import (
 
 
 class LiveCodeBenchTaskHandler(TaskHandler):
-
     def generate_prompt(self, problem):
         if problem["is_stdin"]:
             return self.task_config.templating_parameters["stdin_template"].format(

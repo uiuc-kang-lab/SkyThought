@@ -45,7 +45,9 @@ TRAIN_ARGS = {
 
 @pytest.mark.parametrize("num_samples", [16])
 def test_supervised_single_turn(num_samples: int):
-    train_dataset = load_train_dataset(dataset_dir="ONLINE", dataset=TINY_DATA, **TRAIN_ARGS)
+    train_dataset = load_train_dataset(
+        dataset_dir="ONLINE", dataset=TINY_DATA, **TRAIN_ARGS
+    )
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
     original_data = load_dataset(TINY_DATA, split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
@@ -64,19 +66,26 @@ def test_supervised_single_turn(num_samples: int):
 
 @pytest.mark.parametrize("num_samples", [8])
 def test_supervised_multi_turn(num_samples: int):
-    train_dataset = load_train_dataset(dataset_dir="REMOTE:" + DEMO_DATA, dataset="system_chat", **TRAIN_ARGS)
+    train_dataset = load_train_dataset(
+        dataset_dir="REMOTE:" + DEMO_DATA, dataset="system_chat", **TRAIN_ARGS
+    )
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
     original_data = load_dataset(DEMO_DATA, name="system_chat", split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
     for index in indexes:
-        ref_input_ids = ref_tokenizer.apply_chat_template(original_data["messages"][index])
+        ref_input_ids = ref_tokenizer.apply_chat_template(
+            original_data["messages"][index]
+        )
         assert train_dataset["input_ids"][index] == ref_input_ids
 
 
 @pytest.mark.parametrize("num_samples", [4])
 def test_supervised_train_on_prompt(num_samples: int):
     train_dataset = load_train_dataset(
-        dataset_dir="REMOTE:" + DEMO_DATA, dataset="system_chat", train_on_prompt=True, **TRAIN_ARGS
+        dataset_dir="REMOTE:" + DEMO_DATA,
+        dataset="system_chat",
+        train_on_prompt=True,
+        **TRAIN_ARGS
     )
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
     original_data = load_dataset(DEMO_DATA, name="system_chat", split="train")
@@ -90,7 +99,10 @@ def test_supervised_train_on_prompt(num_samples: int):
 @pytest.mark.parametrize("num_samples", [4])
 def test_supervised_mask_history(num_samples: int):
     train_dataset = load_train_dataset(
-        dataset_dir="REMOTE:" + DEMO_DATA, dataset="system_chat", mask_history=True, **TRAIN_ARGS
+        dataset_dir="REMOTE:" + DEMO_DATA,
+        dataset="system_chat",
+        mask_history=True,
+        **TRAIN_ARGS
     )
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
     original_data = load_dataset(DEMO_DATA, name="system_chat", split="train")
@@ -98,7 +110,9 @@ def test_supervised_mask_history(num_samples: int):
     for index in indexes:
         messages = original_data["messages"][index]
         ref_input_ids = ref_tokenizer.apply_chat_template(messages)
-        prompt_len = len(ref_tokenizer.apply_chat_template(messages[:-1], add_generation_prompt=True))
+        prompt_len = len(
+            ref_tokenizer.apply_chat_template(messages[:-1], add_generation_prompt=True)
+        )
         ref_label_ids = [IGNORE_INDEX] * prompt_len + ref_input_ids[prompt_len:]
         assert train_dataset["input_ids"][index] == ref_input_ids
         assert train_dataset["labels"][index] == ref_label_ids

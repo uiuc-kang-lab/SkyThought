@@ -18,7 +18,10 @@ import torch
 from PIL import Image
 
 from llamafactory.data import get_template_and_fix_tokenizer
-from llamafactory.data.collator import MultiModalDataCollatorForSeq2Seq, prepare_4d_attention_mask
+from llamafactory.data.collator import (
+    MultiModalDataCollatorForSeq2Seq,
+    prepare_4d_attention_mask,
+)
 from llamafactory.extras.constants import IGNORE_INDEX
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
@@ -28,7 +31,9 @@ TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
 
 
 def test_base_collator():
-    model_args, data_args, *_ = get_infer_args({"model_name_or_path": TINY_LLAMA, "template": "default"})
+    model_args, data_args, *_ = get_infer_args(
+        {"model_name_or_path": TINY_LLAMA, "template": "default"}
+    )
     tokenizer_module = load_tokenizer(model_args)
     template = get_template_and_fix_tokenizer(tokenizer_module["tokenizer"], data_args)
     data_collator = MultiModalDataCollatorForSeq2Seq(
@@ -122,7 +127,9 @@ def test_4d_attention_mask():
             [1, 2, 2, 3, 3, 3],
         ]
     )
-    attention_mask_computed = prepare_4d_attention_mask(attention_mask_with_indices, torch.float16)
+    attention_mask_computed = prepare_4d_attention_mask(
+        attention_mask_with_indices, torch.float16
+    )
     attention_mask_expected = torch.tensor(
         [
             [

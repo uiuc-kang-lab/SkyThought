@@ -17,7 +17,11 @@
 
 from typing import TYPE_CHECKING, List, Optional
 
-from ...data import PairwiseDataCollatorWithPadding, get_dataset, get_template_and_fix_tokenizer
+from ...data import (
+    PairwiseDataCollatorWithPadding,
+    get_dataset,
+    get_template_and_fix_tokenizer,
+)
 from ...extras.constants import IGNORE_INDEX
 from ...extras.misc import calculate_tps
 from ...extras.ploting import plot_loss
@@ -43,19 +47,25 @@ def run_dpo(
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
-    dataset_module = get_dataset(template, model_args, data_args, training_args, stage="rm", **tokenizer_module)
+    dataset_module = get_dataset(
+        template, model_args, data_args, training_args, stage="rm", **tokenizer_module
+    )
     model = load_model(tokenizer, model_args, finetuning_args, training_args.do_train)
 
     data_collator = PairwiseDataCollatorWithPadding(
         template=template,
         pad_to_multiple_of=8,
-        label_pad_token_id=IGNORE_INDEX if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id,
+        label_pad_token_id=IGNORE_INDEX
+        if data_args.ignore_pad_token_for_loss
+        else tokenizer.pad_token_id,
         **tokenizer_module,
     )
 
     # Create reference model
     if finetuning_args.use_ref_model:
-        if finetuning_args.ref_model is None and (not training_args.do_train):  # use the model itself
+        if finetuning_args.ref_model is None and (
+            not training_args.do_train
+        ):  # use the model itself
             ref_model = model
         else:
             ref_model = create_ref_model(model_args, finetuning_args)
@@ -63,7 +73,9 @@ def run_dpo(
         ref_model = None
 
     # Update arguments
-    training_args.remove_unused_columns = False  # important for multimodal and pairwise dataset
+    training_args.remove_unused_columns = (
+        False  # important for multimodal and pairwise dataset
+    )
 
     # Initialize our Trainer
     trainer = CustomDPOTrainer(
@@ -79,7 +91,9 @@ def run_dpo(
 
     # Training
     if training_args.do_train:
-        train_result = trainer.train(resume_from_checkpoint=training_args.resume_from_checkpoint)
+        train_result = trainer.train(
+            resume_from_checkpoint=training_args.resume_from_checkpoint
+        )
         trainer.save_model()
         if finetuning_args.include_effective_tokens_per_second:
             train_result.metrics["effective_tokens_per_sec"] = calculate_tps(
@@ -90,12 +104,17 @@ def run_dpo(
         trainer.save_metrics("train", train_result.metrics)
         trainer.save_state()
         if trainer.is_world_process_zero() and finetuning_args.plot_loss:
-            plot_loss(training_args.output_dir, keys=["loss", "eval_loss", "rewards/accuracies"])
+            plot_loss(
+                training_args.output_dir,
+                keys=["loss", "eval_loss", "rewards/accuracies"],
+            )
 
     # Evaluation
     if training_args.do_eval:
         metrics = trainer.evaluate(metric_key_prefix="eval")
-        if id(model) == id(ref_model):  # unable to compute rewards if reference model is the model itself
+        if id(model) == id(
+            ref_model
+        ):  # unable to compute rewards if reference model is the model itself
             remove_keys = [key for key in metrics.keys() if "rewards" in key]
             for key in remove_keys:
                 metrics.pop(key)
@@ -103,4 +122,6 @@ def run_dpo(
         trainer.save_metrics("eval", metrics)
 
     # Create model card
-    create_modelcard_and_push(trainer, model_args, data_args, training_args, finetuning_args)
+    create_modelcard_and_push(
+        trainer, model_args, data_args, training_args, finetuning_args
+    )

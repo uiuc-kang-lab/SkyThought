@@ -29,9 +29,13 @@ from llamafactory.train.test_utils import (
 
 TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
 
-TINY_LLAMA_ADAPTER = os.getenv("TINY_LLAMA_ADAPTER", "llamafactory/tiny-random-Llama-3-lora")
+TINY_LLAMA_ADAPTER = os.getenv(
+    "TINY_LLAMA_ADAPTER", "llamafactory/tiny-random-Llama-3-lora"
+)
 
-TINY_LLAMA_VALUEHEAD = os.getenv("TINY_LLAMA_VALUEHEAD", "llamafactory/tiny-random-Llama-3-valuehead")
+TINY_LLAMA_VALUEHEAD = os.getenv(
+    "TINY_LLAMA_VALUEHEAD", "llamafactory/tiny-random-Llama-3-valuehead"
+)
 
 TRAIN_ARGS = {
     "model_name_or_path": TINY_LLAMA,
@@ -71,7 +75,15 @@ def test_lora_train_qv_modules():
 def test_lora_train_all_modules():
     model = load_train_model(lora_target="all", **TRAIN_ARGS)
     linear_modules, _ = check_lora_model(model)
-    assert linear_modules == {"q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "gate_proj", "down_proj"}
+    assert linear_modules == {
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "up_proj",
+        "gate_proj",
+        "down_proj",
+    }
 
 
 def test_lora_train_extra_modules():
@@ -81,30 +93,56 @@ def test_lora_train_extra_modules():
 
 
 def test_lora_train_old_adapters():
-    model = load_train_model(adapter_name_or_path=TINY_LLAMA_ADAPTER, create_new_adapter=False, **TRAIN_ARGS)
-    ref_model = load_reference_model(TINY_LLAMA, TINY_LLAMA_ADAPTER, use_lora=True, is_trainable=True)
+    model = load_train_model(
+        adapter_name_or_path=TINY_LLAMA_ADAPTER, create_new_adapter=False, **TRAIN_ARGS
+    )
+    ref_model = load_reference_model(
+        TINY_LLAMA, TINY_LLAMA_ADAPTER, use_lora=True, is_trainable=True
+    )
     compare_model(model, ref_model)
 
 
 def test_lora_train_new_adapters():
-    model = load_train_model(adapter_name_or_path=TINY_LLAMA_ADAPTER, create_new_adapter=True, **TRAIN_ARGS)
-    ref_model = load_reference_model(TINY_LLAMA, TINY_LLAMA_ADAPTER, use_lora=True, is_trainable=True)
+    model = load_train_model(
+        adapter_name_or_path=TINY_LLAMA_ADAPTER, create_new_adapter=True, **TRAIN_ARGS
+    )
+    ref_model = load_reference_model(
+        TINY_LLAMA, TINY_LLAMA_ADAPTER, use_lora=True, is_trainable=True
+    )
     compare_model(
-        model, ref_model, diff_keys=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "gate_proj", "down_proj"]
+        model,
+        ref_model,
+        diff_keys=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "up_proj",
+            "gate_proj",
+            "down_proj",
+        ],
     )
 
 
 @pytest.mark.usefixtures("fix_valuehead_cpu_loading")
 def test_lora_train_valuehead():
     model = load_train_model(add_valuehead=True, **TRAIN_ARGS)
-    ref_model = load_reference_model(TINY_LLAMA_VALUEHEAD, is_trainable=True, add_valuehead=True)
+    ref_model = load_reference_model(
+        TINY_LLAMA_VALUEHEAD, is_trainable=True, add_valuehead=True
+    )
     state_dict = model.state_dict()
     ref_state_dict = ref_model.state_dict()
-    assert torch.allclose(state_dict["v_head.summary.weight"], ref_state_dict["v_head.summary.weight"])
-    assert torch.allclose(state_dict["v_head.summary.bias"], ref_state_dict["v_head.summary.bias"])
+    assert torch.allclose(
+        state_dict["v_head.summary.weight"], ref_state_dict["v_head.summary.weight"]
+    )
+    assert torch.allclose(
+        state_dict["v_head.summary.bias"], ref_state_dict["v_head.summary.bias"]
+    )
 
 
 def test_lora_inference():
     model = load_infer_model(**INFER_ARGS)
-    ref_model = load_reference_model(TINY_LLAMA, TINY_LLAMA_ADAPTER, use_lora=True).merge_and_unload()
+    ref_model = load_reference_model(
+        TINY_LLAMA, TINY_LLAMA_ADAPTER, use_lora=True
+    ).merge_and_unload()
     compare_model(model, ref_model)

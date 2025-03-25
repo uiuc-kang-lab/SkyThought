@@ -33,7 +33,9 @@ C-Eval is a comprehensive Chinese evaluation suite for foundation models. It con
 
 _HOMEPAGE = "https://cevalbenchmark.com"
 
-_LICENSE = "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License"
+_LICENSE = (
+    "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License"
+)
 
 _URL = "ceval.zip"
 

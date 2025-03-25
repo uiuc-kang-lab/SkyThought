@@ -41,11 +41,17 @@ except Exception:
 CONFIG_NAME = "config.json"
 
 
-def save_weight(input_dir: str, output_dir: str, shard_size: str, save_safetensors: bool) -> str:
+def save_weight(
+    input_dir: str, output_dir: str, shard_size: str, save_safetensors: bool
+) -> str:
     qwen_state_dict: Dict[str, torch.Tensor] = OrderedDict()
     for filepath in tqdm(os.listdir(input_dir), desc="Load weights"):
-        if os.path.isfile(os.path.join(input_dir, filepath)) and filepath.endswith(".safetensors"):
-            with safe_open(os.path.join(input_dir, filepath), framework="pt", device="cpu") as f:
+        if os.path.isfile(os.path.join(input_dir, filepath)) and filepath.endswith(
+            ".safetensors"
+        ):
+            with safe_open(
+                os.path.join(input_dir, filepath), framework="pt", device="cpu"
+            ) as f:
                 for key in f.keys():
                     qwen_state_dict[key] = f.get_tensor(key)
 
@@ -62,20 +68,28 @@ def save_weight(input_dir: str, output_dir: str, shard_size: str, save_safetenso
             key = key.replace("transformer.h", "model.layers")
             if "attn.c_attn" in key:
                 proj_size = value.size(0) // 3
-                llama2_state_dict[key.replace("attn.c_attn", "self_attn.q_proj")] = value[:proj_size, ...]
-                llama2_state_dict[key.replace("attn.c_attn", "self_attn.k_proj")] = value[
-                    proj_size : 2 * proj_size, ...
-                ]
-                llama2_state_dict[key.replace("attn.c_attn", "self_attn.v_proj")] = value[2 * proj_size :, ...]
+                llama2_state_dict[
+                    key.replace("attn.c_attn", "self_attn.q_proj")
+                ] = value[:proj_size, ...]
+                llama2_state_dict[
+                    key.replace("attn.c_attn", "self_attn.k_proj")
+                ] = value[proj_size : 2 * proj_size, ...]
+                llama2_state_dict[
+                    key.replace("attn.c_attn", "self_attn.v_proj")
+                ] = value[2 * proj_size :, ...]
             elif "attn.c_proj" in key:
-                llama2_state_dict[key.replace("attn.c_proj", "self_attn.o_proj")] = value
-                llama2_state_dict[key.replace("attn.c_proj.weight", "self_attn.o_proj.bias")] = torch.zeros_like(
-                    value[:, 0]
-                ).squeeze()
+                llama2_state_dict[
+                    key.replace("attn.c_proj", "self_attn.o_proj")
+                ] = value
+                llama2_state_dict[
+                    key.replace("attn.c_proj.weight", "self_attn.o_proj.bias")
+                ] = torch.zeros_like(value[:, 0]).squeeze()
             elif "ln_1" in key:
                 llama2_state_dict[key.replace("ln_1", "input_layernorm")] = value
             elif "ln_2" in key:
-                llama2_state_dict[key.replace("ln_2", "post_attention_layernorm")] = value
+                llama2_state_dict[
+                    key.replace("ln_2", "post_attention_layernorm")
+                ] = value
             elif "mlp.w1" in key:
                 llama2_state_dict[key.replace("mlp.w1", "mlp.up_proj")] = value
             elif "mlp.w2" in key:
@@ -88,11 +102,15 @@ def save_weight(input_dir: str, output_dir: str, shard_size: str, save_safetenso
                 raise KeyError(f"Unable to process key {key}")
 
     weights_name = SAFE_WEIGHTS_NAME if save_safetensors else WEIGHTS_NAME
-    shards, index = shard_checkpoint(llama2_state_dict, max_shard_size=shard_size, weights_name=weights_name)
+    shards, index = shard_checkpoint(
+        llama2_state_dict, max_shard_size=shard_size, weights_name=weights_name
+    )
 
     for shard_file, shard in tqdm(shards.items(), desc="Save weights"):
         if save_safetensors:
-            save_file(shard, os.path.join(output_dir, shard_file), metadata={"format": "pt"})
+            save_file(
+                shard, os.path.join(output_dir, shard_file), metadata={"format": "pt"}
+            )
         else:
             torch.save(shard, os.path.join(output_dir, shard_file))
 
@@ -117,11 +135,15 @@ def save_config(input_dir: str, output_dir: str, torch_dtype: str):
     llama2_config_dict["hidden_size"] = qwen_config_dict["hidden_size"]
     llama2_config_dict["initializer_range"] = qwen_config_dict["initializer_range"]
     llama2_config_dict["intermediate_size"] = qwen_config_dict["intermediate_size"] // 2
-    llama2_config_dict["max_position_embeddings"] = qwen_config_dict["max_position_embeddings"]
+    llama2_config_dict["max_position_embeddings"] = qwen_config_dict[
+        "max_position_embeddings"
+    ]
     llama2_config_dict["model_type"] = "llama"
     llama2_config_dict["num_attention_heads"] = qwen_config_dict["num_attention_heads"]
     llama2_config_dict["num_hidden_layers"] = qwen_config_dict["num_hidden_layers"]
-    llama2_config_dict["num_key_value_heads"] = qwen_config_dict["hidden_size"] // qwen_config_dict["kv_channels"]
+    llama2_config_dict["num_key_value_heads"] = (
+        qwen_config_dict["hidden_size"] // qwen_config_dict["kv_channels"]
+    )
     llama2_config_dict["pretraining_tp"] = 1
     llama2_config_dict["rms_norm_eps"] = qwen_config_dict["layer_norm_epsilon"]
     llama2_config_dict["rope_scaling"] = None

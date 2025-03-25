@@ -17,27 +17,46 @@ from verl.single_controller.base.decorator import register, Dispatch
 from verl.single_controller.base.worker import Worker
 
 
-@remote(process_on_nodes=[3], use_gpu=True, name_prefix="actor", sharing=SharedResourcePool)
+@remote(
+    process_on_nodes=[3], use_gpu=True, name_prefix="actor", sharing=SharedResourcePool
+)
 class Actor(Worker):
     ...
 
 
-@remote(process_on_nodes=[3], use_gpu=True, name_prefix="critic", sharing=SharedResourcePool)
+@remote(
+    process_on_nodes=[3], use_gpu=True, name_prefix="critic", sharing=SharedResourcePool
+)
 class Critic(Worker):
     ...
 
 
-@remote(process_on_nodes=[2], use_gpu=True, name_prefix="reward", sharing=SharedResourcePool.from_role("actor"))
+@remote(
+    process_on_nodes=[2],
+    use_gpu=True,
+    name_prefix="reward",
+    sharing=SharedResourcePool.from_role("actor"),
+)
 class Reward(Worker):
     ...
 
 
-@remote(process_on_nodes=[2], use_gpu=True, name_prefix="ref", sharing=SharedResourcePool.from_role("actor", "critic"))
+@remote(
+    process_on_nodes=[2],
+    use_gpu=True,
+    name_prefix="ref",
+    sharing=SharedResourcePool.from_role("actor", "critic"),
+)
 class Ref(Worker):
     ...
 
 
-@remote(process_on_nodes=[1], use_gpu=True, name_prefix="sec_rm", sharing=SharedResourcePool.from_role("any"))
+@remote(
+    process_on_nodes=[1],
+    use_gpu=True,
+    name_prefix="sec_rm",
+    sharing=SharedResourcePool.from_role("any"),
+)
 class SecRM(Worker):
     ...
 
@@ -68,22 +87,31 @@ def test():
     sec_rm_gpus = sec_rm.execute_all_sync("get_cuda_visible_devices")
 
     for gpu in actor_gpus:
-        assert gpu not in critic_gpus, f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}"
+        assert (
+            gpu not in critic_gpus
+        ), f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}"
 
     for gpu in critic_gpus:
-        assert gpu not in actor_gpus, f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}"
+        assert (
+            gpu not in actor_gpus
+        ), f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}"
 
     for gpu in reward_gpus:
-        assert gpu in actor_gpus, f"actor gpus = {actor_gpus}, reward gpus = {reward_gpus}"
+        assert (
+            gpu in actor_gpus
+        ), f"actor gpus = {actor_gpus}, reward gpus = {reward_gpus}"
 
     for gpu in ref_gpus:
-        assert gpu in actor_gpus + critic_gpus, \
-            f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}, ref gpus = {ref_gpus}"
+        assert (
+            gpu in actor_gpus + critic_gpus
+        ), f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}, ref gpus = {ref_gpus}"
 
     for gpu in sec_rm_gpus:
-        assert gpu in actor_gpus + critic_gpus, \
-            f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}, sec rm gpus = {sec_rm_gpus}"
+        assert (
+            gpu in actor_gpus + critic_gpus
+        ), f"actor gpus = {actor_gpus}, critic gpus = {critic_gpus}, sec rm gpus = {sec_rm_gpus}"
 
     # for ci only
     import ray
+
     ray.shutdown()

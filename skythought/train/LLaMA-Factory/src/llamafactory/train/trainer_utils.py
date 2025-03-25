@@ -32,7 +32,12 @@ from ..extras import logging
 from ..extras.constants import IGNORE_INDEX
 from ..extras.packages import is_galore_available
 from ..hparams import FinetuningArguments, ModelArguments
-from ..model import find_all_linear_modules, load_model, load_tokenizer, load_valuehead_params
+from ..model import (
+    find_all_linear_modules,
+    load_model,
+    load_tokenizer,
+    load_valuehead_params,
+)
 
 
 if is_galore_available():
@@ -55,7 +60,11 @@ class DummyOptimizer(torch.optim.Optimizer):
     """
 
     def __init__(
-        self, lr: float = 1e-3, optimizer_dict: Optional[Dict["torch.nn.Parameter", "torch.optim.Optimizer"]] = None
+        self,
+        lr: float = 1e-3,
+        optimizer_dict: Optional[
+            Dict["torch.nn.Parameter", "torch.optim.Optimizer"]
+        ] = None,
     ) -> None:
         dummy_tensor = torch.randn(1, 1)
         self.optimizer_dict = optimizer_dict
@@ -93,11 +102,15 @@ def create_modelcard_and_push(
     elif training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
     else:
-        trainer.create_model_card(license="other", **kwargs)  # prevent from connecting to hub
+        trainer.create_model_card(
+            license="other", **kwargs
+        )  # prevent from connecting to hub
 
 
 def create_ref_model(
-    model_args: "ModelArguments", finetuning_args: "FinetuningArguments", add_valuehead: bool = False
+    model_args: "ModelArguments",
+    finetuning_args: "FinetuningArguments",
+    add_valuehead: bool = False,
 ) -> Optional[Union["PreTrainedModel", "AutoModelForCausalLMWithValueHead"]]:
     r"""
     Creates reference model for PPO/DPO training. Evaluation mode is not supported.
@@ -114,7 +127,11 @@ def create_ref_model(
         ref_finetuning_args = FinetuningArguments()
         tokenizer = load_tokenizer(ref_model_args)["tokenizer"]
         ref_model = load_model(
-            tokenizer, ref_model_args, ref_finetuning_args, is_trainable=False, add_valuehead=add_valuehead
+            tokenizer,
+            ref_model_args,
+            ref_finetuning_args,
+            is_trainable=False,
+            add_valuehead=add_valuehead,
         )
         logger.info_rank0(f"Created reference model from {finetuning_args.ref_model}")
     else:
@@ -125,7 +142,11 @@ def create_ref_model(
             ref_finetuning_args = FinetuningArguments()
             tokenizer = load_tokenizer(ref_model_args)["tokenizer"]
             ref_model = load_model(
-                tokenizer, ref_model_args, ref_finetuning_args, is_trainable=False, add_valuehead=add_valuehead
+                tokenizer,
+                ref_model_args,
+                ref_finetuning_args,
+                is_trainable=False,
+                add_valuehead=add_valuehead,
             )
             logger.info_rank0("Created reference model from the model itself.")
 
@@ -133,31 +154,54 @@ def create_ref_model(
 
 
 def create_reward_model(
-    model: "AutoModelForCausalLMWithValueHead", model_args: "ModelArguments", finetuning_args: "FinetuningArguments"
+    model: "AutoModelForCausalLMWithValueHead",
+    model_args: "ModelArguments",
+    finetuning_args: "FinetuningArguments",
 ) -> Optional["AutoModelForCausalLMWithValueHead"]:
     r"""
     Creates reward model for PPO training.
     """
     if finetuning_args.reward_model_type == "api":
-        assert finetuning_args.reward_model.startswith("http"), "Please provide full url."
+        assert finetuning_args.reward_model.startswith(
+            "http"
+        ), "Please provide full url."
         logger.info_rank0(f"Use reward server {finetuning_args.reward_model}")
         return finetuning_args.reward_model
     elif finetuning_args.reward_model_type == "lora":
         model.pretrained_model.load_adapter(finetuning_args.reward_model, "reward")
-        for name, param in model.named_parameters():  # https://github.com/huggingface/peft/issues/1090
+        for (
+            name,
+            param,
+        ) in (
+            model.named_parameters()
+        ):  # https://github.com/huggingface/peft/issues/1090
             if "default" in name:
-                param.data = param.data.to(torch.float32)  # trainable params should in fp32
+                param.data = param.data.to(
+                    torch.float32
+                )  # trainable params should in fp32
         vhead_params = load_valuehead_params(finetuning_args.reward_model, model_args)
         assert vhead_params is not None, "Reward model is not correctly loaded."
-        model.register_buffer("reward_head_weight", vhead_params["v_head.summary.weight"], persistent=False)
-        model.register_buffer("reward_head_bias", vhead_params["v_head.summary.bias"], persistent=False)
         model.register_buffer(
-            "default_head_weight", torch.zeros_like(vhead_params["v_head.summary.weight"]), persistent=False
+            "reward_head_weight",
+            vhead_params["v_head.summary.weight"],
+            persistent=False,
         )
         model.register_buffer(
-            "default_head_bias", torch.zeros_like(vhead_params["v_head.summary.bias"]), persistent=False
+            "reward_head_bias", vhead_params["v_head.summary.bias"], persistent=False
         )
-        logger.info_rank0(f"Loaded adapter weights of reward model from {finetuning_args.reward_model}")
+        model.register_buffer(
+            "default_head_weight",
+            torch.zeros_like(vhead_params["v_head.summary.weight"]),
+            persistent=False,
+        )
+        model.register_buffer(
+            "default_head_bias",
+            torch.zeros_like(vhead_params["v_head.summary.bias"]),
+            persistent=False,
+        )
+        logger.info_rank0(
+            f"Loaded adapter weights of reward model from {finetuning_args.reward_model}"
+        )
         return None
     else:
         reward_model_args = ModelArguments.copyfrom(
@@ -169,10 +213,18 @@ def create_reward_model(
         reward_finetuning_args = FinetuningArguments()
         tokenizer = load_tokenizer(reward_model_args)["tokenizer"]
         reward_model = load_model(
-            tokenizer, reward_model_args, reward_finetuning_args, is_trainable=False, add_valuehead=True
+            tokenizer,
+            reward_model_args,
+            reward_finetuning_args,
+            is_trainable=False,
+            add_valuehead=True,
         )
-        logger.info_rank0(f"Loaded full weights of reward model from {finetuning_args.reward_model}")
-        logger.warning_rank0("Please ensure the ppo model and reward model share SAME tokenizer and vocabulary.")
+        logger.info_rank0(
+            f"Loaded full weights of reward model from {finetuning_args.reward_model}"
+        )
+        logger.warning_rank0(
+            "Please ensure the ppo model and reward model share SAME tokenizer and vocabulary."
+        )
         return reward_model
 
 
@@ -190,14 +242,21 @@ def _create_galore_optimizer(
     training_args: "Seq2SeqTrainingArguments",
     finetuning_args: "FinetuningArguments",
 ) -> "torch.optim.Optimizer":
-    if len(finetuning_args.galore_target) == 1 and finetuning_args.galore_target[0] == "all":
-        galore_targets = find_all_linear_modules(model, finetuning_args.freeze_vision_tower)
+    if (
+        len(finetuning_args.galore_target) == 1
+        and finetuning_args.galore_target[0] == "all"
+    ):
+        galore_targets = find_all_linear_modules(
+            model, finetuning_args.freeze_vision_tower
+        )
     else:
         galore_targets = finetuning_args.galore_target
 
     galore_params: List["torch.nn.Parameter"] = []
     for name, module in model.named_modules():
-        if isinstance(module, torch.nn.Linear) and any(target in name for target in galore_targets):
+        if isinstance(module, torch.nn.Linear) and any(
+            target in name for target in galore_targets
+        ):
             for param in module.parameters():
                 if param.requires_grad and len(param.shape) > 1:
                     galore_params.append(param)
@@ -211,7 +270,9 @@ def _create_galore_optimizer(
 
     id_galore_params = {id(param) for param in galore_params}
     decay_params, nodecay_params = [], []  # they are non-galore parameters
-    trainable_params: List["torch.nn.Parameter"] = []  # galore_params + decay_params + nodecay_params
+    trainable_params: List[
+        "torch.nn.Parameter"
+    ] = []  # galore_params + decay_params + nodecay_params
     decay_param_names = _get_decay_parameter_names(model)
     for name, param in model.named_parameters():
         if param.requires_grad:
@@ -242,10 +303,18 @@ def _create_galore_optimizer(
             param_groups = [dict(params=[param], weight_decay=0.0)]
             optimizer_dict[param] = optim_class(param_groups, **optim_kwargs)
         for param in decay_params:
-            param_groups = [dict(params=[param], weight_decay=training_args.weight_decay)]
+            param_groups = [
+                dict(params=[param], weight_decay=training_args.weight_decay)
+            ]
             optimizer_dict[param] = optim_class(param_groups, **optim_kwargs)
         for param in galore_params:  # galore params have weight decay
-            param_groups = [dict(params=[param], weight_decay=training_args.weight_decay, **galore_kwargs)]
+            param_groups = [
+                dict(
+                    params=[param],
+                    weight_decay=training_args.weight_decay,
+                    **galore_kwargs,
+                )
+            ]
             optimizer_dict[param] = optim_class(param_groups, **optim_kwargs)
 
         def optimizer_hook(param: "torch.nn.Parameter"):
@@ -256,16 +325,24 @@ def _create_galore_optimizer(
         for param in trainable_params:
             param.register_post_accumulate_grad_hook(optimizer_hook)
 
-        optimizer = DummyOptimizer(lr=training_args.learning_rate, optimizer_dict=optimizer_dict)
+        optimizer = DummyOptimizer(
+            lr=training_args.learning_rate, optimizer_dict=optimizer_dict
+        )
     else:
         param_groups = [
             dict(params=nodecay_params, weight_decay=0.0),
             dict(params=decay_params, weight_decay=training_args.weight_decay),
-            dict(params=galore_params, weight_decay=training_args.weight_decay, **galore_kwargs),
+            dict(
+                params=galore_params,
+                weight_decay=training_args.weight_decay,
+                **galore_kwargs,
+            ),
         ]
         optimizer = optim_class(param_groups, **optim_kwargs)
 
-    logger.info_rank0("Using GaLore optimizer, may cause hanging at the start of training, wait patiently.")
+    logger.info_rank0(
+        "Using GaLore optimizer, may cause hanging at the start of training, wait patiently."
+    )
     return optimizer
 
 
@@ -299,13 +376,27 @@ def _create_loraplus_optimizer(
 
     optim_class, optim_kwargs = Trainer.get_optimizer_cls_and_kwargs(training_args)
     param_groups = [
-        dict(params=param_dict["lora_a"], lr=default_lr, weight_decay=training_args.weight_decay),
-        dict(params=param_dict["lora_b"], lr=loraplus_lr, weight_decay=training_args.weight_decay),
+        dict(
+            params=param_dict["lora_a"],
+            lr=default_lr,
+            weight_decay=training_args.weight_decay,
+        ),
+        dict(
+            params=param_dict["lora_b"],
+            lr=loraplus_lr,
+            weight_decay=training_args.weight_decay,
+        ),
         dict(params=param_dict["lora_b_nodecay"], lr=loraplus_lr, weight_decay=0.0),
-        dict(params=param_dict["embedding"], lr=embedding_lr, weight_decay=training_args.weight_decay),
+        dict(
+            params=param_dict["embedding"],
+            lr=embedding_lr,
+            weight_decay=training_args.weight_decay,
+        ),
     ]
     optimizer = optim_class(param_groups, **optim_kwargs)
-    logger.info_rank0(f"Using LoRA+ optimizer with loraplus lr ratio {finetuning_args.loraplus_lr_ratio:.2f}.")
+    logger.info_rank0(
+        f"Using LoRA+ optimizer with loraplus lr ratio {finetuning_args.loraplus_lr_ratio:.2f}."
+    )
     return optimizer
 
 
@@ -420,7 +511,9 @@ def create_custom_scheduler(
 ) -> None:
     if optimizer is not None and isinstance(optimizer, DummyOptimizer):
         optimizer_dict = optimizer.optimizer_dict
-        scheduler_dict: Dict["torch.nn.Parameter", "torch.optim.lr_scheduler.LRScheduler"] = {}
+        scheduler_dict: Dict[
+            "torch.nn.Parameter", "torch.optim.lr_scheduler.LRScheduler"
+        ] = {}
 
         for param in optimizer_dict.keys():
             scheduler_dict[param] = get_scheduler(
@@ -439,7 +532,9 @@ def create_custom_scheduler(
 
 
 def get_batch_logps(
-    logits: "torch.Tensor", labels: "torch.Tensor", label_pad_token_id: int = IGNORE_INDEX
+    logits: "torch.Tensor",
+    labels: "torch.Tensor",
+    label_pad_token_id: int = IGNORE_INDEX,
 ) -> Tuple["torch.Tensor", "torch.Tensor"]:
     r"""
     Computes the log probabilities of the given labels under the given logits.
@@ -449,11 +544,15 @@ def get_batch_logps(
         valid_length: A tensor of shape (batch_size,) containing the number of non-masked tokens.
     """
     if logits.shape[:-1] != labels.shape:
-        raise ValueError("Logits (batchsize x seqlen) and labels must have the same shape.")
+        raise ValueError(
+            "Logits (batchsize x seqlen) and labels must have the same shape."
+        )
 
     labels = labels[:, 1:].clone()
     logits = logits[:, :-1, :]
     loss_mask = labels != label_pad_token_id
     labels[labels == label_pad_token_id] = 0  # dummy token
-    per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
+    per_token_logps = torch.gather(
+        logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)
+    ).squeeze(2)
     return (per_token_logps * loss_mask).sum(-1), loss_mask.sum(-1)

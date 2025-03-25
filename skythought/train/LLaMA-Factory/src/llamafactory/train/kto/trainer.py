@@ -30,7 +30,11 @@ from typing_extensions import override
 from ...extras.constants import IGNORE_INDEX
 from ...extras.packages import is_transformers_version_equal_to_4_46
 from ..callbacks import SaveProcessorCallback
-from ..trainer_utils import create_custom_optimizer, create_custom_scheduler, get_batch_logps
+from ..trainer_utils import (
+    create_custom_optimizer,
+    create_custom_scheduler,
+    get_batch_logps,
+)
 
 
 if TYPE_CHECKING:
@@ -85,11 +89,14 @@ class CustomKTOTrainer(KTOTrainer):
         if ref_model is not None:
             if self.is_deepspeed_enabled:
                 if not (
-                    getattr(ref_model, "is_loaded_in_8bit", False) or getattr(ref_model, "is_loaded_in_4bit", False)
+                    getattr(ref_model, "is_loaded_in_8bit", False)
+                    or getattr(ref_model, "is_loaded_in_4bit", False)
                 ):  # quantized models are already set on the correct device
                     self.ref_model = self._prepare_deepspeed(self.ref_model)
             else:
-                self.ref_model = self.accelerator.prepare_model(self.ref_model, evaluation_mode=True)
+                self.ref_model = self.accelerator.prepare_model(
+                    self.ref_model, evaluation_mode=True
+                )
                 self.ref_model.eval()
 
         if processor is not None:
@@ -98,18 +105,24 @@ class CustomKTOTrainer(KTOTrainer):
         if finetuning_args.use_badam:
             from badam import BAdamCallback, clip_grad_norm_old_version  # type: ignore
 
-            self.accelerator.clip_grad_norm_ = MethodType(clip_grad_norm_old_version, self.accelerator)
+            self.accelerator.clip_grad_norm_ = MethodType(
+                clip_grad_norm_old_version, self.accelerator
+            )
             self.add_callback(BAdamCallback)
 
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
         if self.optimizer is None:
-            self.optimizer = create_custom_optimizer(self.model, self.args, self.finetuning_args)
+            self.optimizer = create_custom_optimizer(
+                self.model, self.args, self.finetuning_args
+            )
         return super().create_optimizer()
 
     @override
     def create_scheduler(
-        self, num_training_steps: int, optimizer: Optional["torch.optim.Optimizer"] = None
+        self,
+        num_training_steps: int,
+        optimizer: Optional["torch.optim.Optimizer"] = None,
     ) -> "torch.optim.lr_scheduler.LRScheduler":
         create_custom_scheduler(self.args, num_training_steps, optimizer)
         return super().create_scheduler(num_training_steps, optimizer)
@@ -130,7 +143,10 @@ class CustomKTOTrainer(KTOTrainer):
 
     @override
     def forward(
-        self, model: "PreTrainedModel", batch: Dict[str, "torch.Tensor"], prefix: Literal["", "kl_"] = ""
+        self,
+        model: "PreTrainedModel",
+        batch: Dict[str, "torch.Tensor"],
+        prefix: Literal["", "kl_"] = "",
     ) -> Tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]:
         r"""
         Runs forward pass and computes the log probabilities.
@@ -149,14 +165,25 @@ class CustomKTOTrainer(KTOTrainer):
         if "image_grid_thw" in batch:
             model_inputs["image_grid_thw"] = batch["image_grid_thw"]
 
-        logits = model(**model_inputs, return_dict=True, use_cache=False).logits.to(torch.float32)
-        logps, valid_length = get_batch_logps(logits=logits, labels=batch[f"{prefix}labels"])
+        logits = model(**model_inputs, return_dict=True, use_cache=False).logits.to(
+            torch.float32
+        )
+        logps, valid_length = get_batch_logps(
+            logits=logits, labels=batch[f"{prefix}labels"]
+        )
         return logits, logps, logps / valid_length
 
     @override
     def concatenated_forward(
         self, model: "PreTrainedModel", batch: Dict[str, "torch.Tensor"]
-    ) -> Tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:
+    ) -> Tuple[
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+    ]:
         target_logits, target_logps, target_logps_avg = self.forward(model, batch)
         with torch.no_grad():
             _, kl_logps, _ = self.forward(model, batch, prefix="kl_")
@@ -169,7 +196,14 @@ class CustomKTOTrainer(KTOTrainer):
         rejected_logits = target_logits[~batch["kto_tags"]]
         rejected_logps = target_logps[~batch["kto_tags"]]
         chosen_logps_avg = target_logps_avg[batch["kto_tags"]]
-        return chosen_logps, rejected_logps, chosen_logits, rejected_logits, kl_logps, chosen_logps_avg
+        return (
+            chosen_logps,
+            rejected_logps,
+            chosen_logits,
+            rejected_logits,
+            kl_logps,
+            chosen_logps_avg,
+        )
 
     @override
     def compute_reference_log_probs(
@@ -186,9 +220,14 @@ class CustomKTOTrainer(KTOTrainer):
             ref_context = nullcontext()
 
         with torch.no_grad(), ref_context:
-            reference_chosen_logps, reference_rejected_logps, _, _, reference_kl_logps, _ = self.concatenated_forward(
-                ref_model, batch
-            )
+            (
+                reference_chosen_logps,
+                reference_rejected_logps,
+                _,
+                _,
+                reference_kl_logps,
+                _,
+            ) = self.concatenated_forward(ref_model, batch)
 
         return reference_chosen_logps, reference_rejected_logps, reference_kl_logps
 
@@ -210,9 +249,11 @@ class CustomKTOTrainer(KTOTrainer):
             policy_kl_logps,
             policy_chosen_logps_avg,
         ) = self.concatenated_forward(model, batch)
-        reference_chosen_logps, reference_rejected_logps, reference_kl_logps = self.compute_reference_log_probs(
-            model, batch
-        )
+        (
+            reference_chosen_logps,
+            reference_rejected_logps,
+            reference_kl_logps,
+        ) = self.compute_reference_log_probs(model, batch)
         losses, chosen_rewards, rejected_rewards, kl = self.kto_loss(
             policy_chosen_logps,
             policy_rejected_logps,
@@ -223,9 +264,16 @@ class CustomKTOTrainer(KTOTrainer):
         )
         losses = losses.nanmean()
 
-        if self.ftx_gamma > 1e-6 and len(policy_chosen_logps) > 0:  # remember to rescale
+        if (
+            self.ftx_gamma > 1e-6 and len(policy_chosen_logps) > 0
+        ):  # remember to rescale
             sft_loss = -policy_chosen_logps_avg
-            losses += self.ftx_gamma * sft_loss.nanmean() / len(policy_chosen_logps) * len(batch["labels"])
+            losses += (
+                self.ftx_gamma
+                * sft_loss.nanmean()
+                / len(policy_chosen_logps)
+                * len(batch["labels"])
+            )
 
         num_chosen = len(chosen_rewards)
         num_rejected = len(rejected_rewards)
@@ -251,7 +299,9 @@ class CustomKTOTrainer(KTOTrainer):
         https://github.com/huggingface/transformers/blob/v4.46.0/src/transformers/trainer.py#L3605
         """
         loss = super().compute_loss(model, inputs, return_outputs)
-        if is_transformers_version_equal_to_4_46() and kwargs.pop("num_items_in_batch", False):
+        if is_transformers_version_equal_to_4_46() and kwargs.pop(
+            "num_items_in_batch", False
+        ):
             if return_outputs:
                 return (loss[0] / self.args.gradient_accumulation_steps, *loss[1:])
             else:
@@ -271,7 +321,12 @@ class CustomKTOTrainer(KTOTrainer):
         key_list, metric_list = [], []
         for key, metrics in self._stored_metrics[train_eval].items():
             key_list.append(key)
-            metric_list.append(torch.tensor(metrics, dtype=torch.float).to(self.accelerator.device).sum().item())
+            metric_list.append(
+                torch.tensor(metrics, dtype=torch.float)
+                .to(self.accelerator.device)
+                .sum()
+                .item()
+            )
 
         del self._stored_metrics[train_eval]
         if len(metric_list) < 9:  # pad to for all reduce
@@ -279,18 +334,30 @@ class CustomKTOTrainer(KTOTrainer):
                 key_list.append(f"dummy_{i}")
                 metric_list.append(0.0)
 
-        metric_list = torch.tensor(metric_list, dtype=torch.float).to(self.accelerator.device)
+        metric_list = torch.tensor(metric_list, dtype=torch.float).to(
+            self.accelerator.device
+        )
         metric_list = self.accelerator.reduce(metric_list, "sum").tolist()
         metric_dict: Dict[str, float] = dict(zip(key_list, metric_list))
-        for split in ["chosen", "rejected"]:  # accumulate average metrics from sums and lengths
+        for split in [
+            "chosen",
+            "rejected",
+        ]:  # accumulate average metrics from sums and lengths
             if f"count/{split}" in metric_dict:
                 for key in ("rewards", "logps", "logits"):
-                    logs[f"{prefix}{key}/{split}"] = metric_dict[f"{key}/{split}_sum"] / metric_dict[f"count/{split}"]
+                    logs[f"{prefix}{key}/{split}"] = (
+                        metric_dict[f"{key}/{split}_sum"]
+                        / metric_dict[f"count/{split}"]
+                    )
                     del metric_dict[f"{key}/{split}_sum"]
                 del metric_dict[f"count/{split}"]
 
-        if f"{prefix}rewards/chosen" in logs and f"{prefix}rewards/rejected" in logs:  # calculate reward margin
-            logs[f"{prefix}rewards/margins"] = logs[f"{prefix}rewards/chosen"] - logs[f"{prefix}rewards/rejected"]
+        if (
+            f"{prefix}rewards/chosen" in logs and f"{prefix}rewards/rejected" in logs
+        ):  # calculate reward margin
+            logs[f"{prefix}rewards/margins"] = (
+                logs[f"{prefix}rewards/chosen"] - logs[f"{prefix}rewards/rejected"]
+            )
 
         for key, metric in metric_dict.items():  # add remaining items
             if not key.startswith("dummy_"):

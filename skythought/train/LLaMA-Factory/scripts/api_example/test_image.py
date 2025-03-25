@@ -34,7 +34,9 @@ def main():
                 {"type": "text", "text": "Output the color and number of each box."},
                 {
                     "type": "image_url",
-                    "image_url": {"url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-VL/boxes.png"},
+                    "image_url": {
+                        "url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-VL/boxes.png"
+                    },
                 },
             ],
         }
@@ -50,7 +52,9 @@ def main():
                 {"type": "text", "text": "What kind of flower is this?"},
                 {
                     "type": "image_url",
-                    "image_url": {"url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-VL/flowers.jpg"},
+                    "image_url": {
+                        "url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-VL/flowers.jpg"
+                    },
                 },
             ],
         }

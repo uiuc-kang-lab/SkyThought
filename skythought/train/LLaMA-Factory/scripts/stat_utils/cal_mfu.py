@@ -53,13 +53,23 @@ def compute_model_flops(
     # attn projector module
     q_flops_per_token = BASE * hidden_size * hidden_size
     o_flops_per_token = BASE * hidden_size * hidden_size
-    k_flops_per_token = BASE * hidden_size * hidden_size * num_key_value_heads // num_attention_heads
-    v_flops_per_token = BASE * hidden_size * hidden_size * num_key_value_heads // num_attention_heads
-    attn_proj_flops_per_token = q_flops_per_token + o_flops_per_token + k_flops_per_token + v_flops_per_token
-    attn_proj_flops = total_batch_size * seq_length * num_hidden_layers * attn_proj_flops_per_token
+    k_flops_per_token = (
+        BASE * hidden_size * hidden_size * num_key_value_heads // num_attention_heads
+    )
+    v_flops_per_token = (
+        BASE * hidden_size * hidden_size * num_key_value_heads // num_attention_heads
+    )
+    attn_proj_flops_per_token = (
+        q_flops_per_token + o_flops_per_token + k_flops_per_token + v_flops_per_token
+    )
+    attn_proj_flops = (
+        total_batch_size * seq_length * num_hidden_layers * attn_proj_flops_per_token
+    )
 
     # attn sdpa module
-    sdpa_flops_per_layer = 2 * BASE * hidden_size * seq_length * seq_length  # (q * k^T) * v
+    sdpa_flops_per_layer = (
+        2 * BASE * hidden_size * seq_length * seq_length
+    )  # (q * k^T) * v
     sdpa_flops = total_batch_size * num_hidden_layers * sdpa_flops_per_layer
 
     # embedding module
@@ -77,7 +87,9 @@ def compute_model_flops(
     if include_recompute:
         non_embedding_coeff += 1
 
-    total_flops = non_embedding_coeff * non_embedding_flops + embedding_coeff * embedding_flops
+    total_flops = (
+        non_embedding_coeff * non_embedding_flops + embedding_coeff * embedding_flops
+    )
 
     if include_flashattn:
         total_flops += sdpa_flops
@@ -142,7 +154,9 @@ def calculate_mfu(
         args["deepspeed"] = f"examples/deepspeed/ds_z{deepspeed_stage}_config.json"
 
     run_exp(args)
-    with open(os.path.join("saves", "test_mfu", "all_results.json"), encoding="utf-8") as f:
+    with open(
+        os.path.join("saves", "test_mfu", "all_results.json"), encoding="utf-8"
+    ) as f:
         result = json.load(f)
 
     if dist.is_initialized():

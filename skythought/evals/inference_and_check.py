@@ -333,9 +333,9 @@ def score_responses(
             new_response_entry = future.result()
 
             # Update correctness and reason in the original results dict
-            id_to_results[unique_id]["responses"][i]["correctness"] = (
-                new_response_entry["correctness"]
-            )
+            id_to_results[unique_id]["responses"][i][
+                "correctness"
+            ] = new_response_entry["correctness"]
             id_to_results[unique_id]["responses"][i]["reason"] = new_response_entry[
                 "reason"
             ]

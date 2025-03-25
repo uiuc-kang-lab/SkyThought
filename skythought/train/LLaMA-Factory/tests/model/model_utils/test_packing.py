@@ -60,9 +60,13 @@ def test_get_seqlens_in_batch(attention_mask, golden_seq_lens):
         ),
     ],
 )
-def test_get_unpad_data(attention_mask, golden_indices, golden_cu_seqlens, golden_max_seqlen):
+def test_get_unpad_data(
+    attention_mask, golden_indices, golden_cu_seqlens, golden_max_seqlen
+):
     attention_mask_with_indices = torch.tensor(attention_mask)
-    indices, cu_seqlens, max_seqlen_in_batch = get_unpad_data(attention_mask_with_indices)
+    indices, cu_seqlens, max_seqlen_in_batch = get_unpad_data(
+        attention_mask_with_indices
+    )
     assert torch.all(indices == torch.tensor(golden_indices))
     assert torch.all(cu_seqlens == torch.tensor(golden_cu_seqlens, dtype=torch.int32))
     assert max_seqlen_in_batch == golden_max_seqlen

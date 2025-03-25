@@ -44,7 +44,9 @@ if is_rouge_available():
     from rouge_chinese import Rouge
 
 
-def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "torch.Tensor":
+def eval_logit_processor(
+    logits: "torch.Tensor", labels: "torch.Tensor"
+) -> "torch.Tensor":
     r"""
     Computes the token with the largest likelihood to reduce memory footprint.
     """
@@ -77,12 +79,16 @@ class ComputeAccuracy:
     def __post_init__(self):
         self._dump()
 
-    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+    def __call__(
+        self, eval_preds: "EvalPrediction", compute_result: bool = True
+    ) -> Optional[Dict[str, float]]:
         preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
         for i in range(len(preds)):
             pred, label = preds[i, :-1], labels[i, 1:]
             label_mask = label != IGNORE_INDEX
-            self.score_dict["accuracy"].append(np.mean(pred[label_mask] == label[label_mask]))
+            self.score_dict["accuracy"].append(
+                np.mean(pred[label_mask] == label[label_mask])
+            )
 
         if compute_result:
             return self._dump()
@@ -109,7 +115,9 @@ class ComputeSimilarity:
     def __post_init__(self):
         self._dump()
 
-    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+    def __call__(
+        self, eval_preds: "EvalPrediction", compute_result: bool = True
+    ) -> Optional[Dict[str, float]]:
         preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
 
         preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
@@ -122,8 +130,15 @@ class ComputeSimilarity:
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
 
-            if len(" ".join(hypothesis).split()) == 0 or len(" ".join(reference).split()) == 0:
-                result = {"rouge-1": {"f": 0.0}, "rouge-2": {"f": 0.0}, "rouge-l": {"f": 0.0}}
+            if (
+                len(" ".join(hypothesis).split()) == 0
+                or len(" ".join(reference).split()) == 0
+            ):
+                result = {
+                    "rouge-1": {"f": 0.0},
+                    "rouge-2": {"f": 0.0},
+                    "rouge-l": {"f": 0.0},
+                }
             else:
                 rouge = Rouge()
                 scores = rouge.get_scores(" ".join(hypothesis), " ".join(reference))
@@ -132,7 +147,11 @@ class ComputeSimilarity:
             for k, v in result.items():
                 self.score_dict[k].append(round(v["f"] * 100, 4))
 
-            bleu_score = sentence_bleu([list(label)], list(pred), smoothing_function=SmoothingFunction().method3)
+            bleu_score = sentence_bleu(
+                [list(label)],
+                list(pred),
+                smoothing_function=SmoothingFunction().method3,
+            )
             self.score_dict["bleu-4"].append(round(bleu_score * 100, 4))
 
         if compute_result:

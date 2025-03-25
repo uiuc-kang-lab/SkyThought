@@ -7,7 +7,9 @@ import datasets
 
 _HF_ENDPOINT = os.getenv("HF_ENDPOINT", "https://huggingface.co")
 
-_DESCRIPTION = "UltraChat: Large-scale, Informative, and Diverse Multi-round Dialogue Data."
+_DESCRIPTION = (
+    "UltraChat: Large-scale, Informative, and Diverse Multi-round Dialogue Data."
+)
 
 _CITATION = """\
 @misc{UltraChat,
@@ -22,7 +24,9 @@ _CITATION = """\
 
 _HOMEPAGE = f"{_HF_ENDPOINT}/datasets/stingning/ultrachat"
 _LICENSE = "cc-by-nc-4.0"
-_BASE_DATA_URL = f"{_HF_ENDPOINT}/datasets/stingning/ultrachat/resolve/main/train_{{idx}}.jsonl"
+_BASE_DATA_URL = (
+    f"{_HF_ENDPOINT}/datasets/stingning/ultrachat/resolve/main/train_{{idx}}.jsonl"
+)
 
 
 class UltraChat(datasets.GeneratorBasedBuilder):
@@ -30,15 +34,32 @@ class UltraChat(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         features = datasets.Features(
-            {"conversations": [{"from": datasets.Value("string"), "value": datasets.Value("string")}]}
+            {
+                "conversations": [
+                    {
+                        "from": datasets.Value("string"),
+                        "value": datasets.Value("string"),
+                    }
+                ]
+            }
         )
         return datasets.DatasetInfo(
-            description=_DESCRIPTION, features=features, homepage=_HOMEPAGE, license=_LICENSE, citation=_CITATION
+            description=_DESCRIPTION,
+            features=features,
+            homepage=_HOMEPAGE,
+            license=_LICENSE,
+            citation=_CITATION,
         )
 
     def _split_generators(self, dl_manager: datasets.DownloadManager):
-        file_paths = [dl_manager.download(_BASE_DATA_URL.format(idx=idx)) for idx in range(10)]  # multiple shards
-        return [datasets.SplitGenerator(name=datasets.Split.TRAIN, gen_kwargs={"filepaths": file_paths})]
+        file_paths = [
+            dl_manager.download(_BASE_DATA_URL.format(idx=idx)) for idx in range(10)
+        ]  # multiple shards
+        return [
+            datasets.SplitGenerator(
+                name=datasets.Split.TRAIN, gen_kwargs={"filepaths": file_paths}
+            )
+        ]
 
     def _generate_examples(self, filepaths: List[str]):
         for filepath in filepaths:
@@ -55,6 +76,7 @@ class UltraChat(datasets.GeneratorBasedBuilder):
                     if len(content) < 2:
                         continue
                     conversations = [
-                        {"from": "human" if i % 2 == 0 else "gpt", "value": content[i]} for i in range(len(content))
+                        {"from": "human" if i % 2 == 0 else "gpt", "value": content[i]}
+                        for i in range(len(content))
                     ]
                     yield key, {"conversations": conversations}

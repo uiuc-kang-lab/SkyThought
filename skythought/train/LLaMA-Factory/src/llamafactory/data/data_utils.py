@@ -47,7 +47,9 @@ class DatasetModule(TypedDict):
 
 
 def merge_dataset(
-    all_datasets: List[Union["Dataset", "IterableDataset"]], data_args: "DataArguments", seed: int
+    all_datasets: List[Union["Dataset", "IterableDataset"]],
+    data_args: "DataArguments",
+    seed: int,
 ) -> Union["Dataset", "IterableDataset"]:
     r"""
     Merges multiple datasets to a unified dataset.
@@ -56,18 +58,24 @@ def merge_dataset(
         return all_datasets[0]
     elif data_args.mix_strategy == "concat":
         if data_args.streaming:
-            logger.warning_once("The samples between different datasets will not be mixed in streaming mode.")
+            logger.warning_once(
+                "The samples between different datasets will not be mixed in streaming mode."
+            )
 
         return concatenate_datasets(all_datasets)
     elif data_args.mix_strategy.startswith("interleave"):
         if not data_args.streaming:
-            logger.warning_once("We recommend using `mix_strategy=concat` in non-streaming mode.")
+            logger.warning_once(
+                "We recommend using `mix_strategy=concat` in non-streaming mode."
+            )
 
         return interleave_datasets(
             datasets=all_datasets,
             probabilities=data_args.interleave_probs,
             seed=seed,
-            stopping_strategy="first_exhausted" if data_args.mix_strategy.endswith("under") else "all_exhausted",
+            stopping_strategy="first_exhausted"
+            if data_args.mix_strategy.endswith("under")
+            else "all_exhausted",
         )
     else:
         raise ValueError(f"Unknown mixing strategy: {data_args.mix_strategy}.")
@@ -87,6 +95,8 @@ def split_dataset(
         train_set = dataset.skip(int(data_args.val_size))
         return DatasetDict({"train": train_set, "validation": val_set})
     else:
-        val_size = int(data_args.val_size) if data_args.val_size > 1 else data_args.val_size
+        val_size = (
+            int(data_args.val_size) if data_args.val_size > 1 else data_args.val_size
+        )
         dataset = dataset.train_test_split(test_size=val_size, seed=seed)
         return DatasetDict({"train": dataset["train"], "validation": dataset["test"]})

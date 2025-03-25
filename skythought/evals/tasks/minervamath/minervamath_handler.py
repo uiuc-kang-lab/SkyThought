@@ -8,7 +8,6 @@ from ..math.math_handler import MathTaskHandler
 
 
 class MinervaMathTaskHandler(MathTaskHandler):
-
     def check_correctness(self, problem, generation):
         answer = extract_answer(problem[self.task_config.answer_key])
         answer = strip_answer_string(answer)

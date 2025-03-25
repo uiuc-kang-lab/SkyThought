@@ -19,7 +19,12 @@ from typing import Dict, Optional
 
 from peft.utils import SAFETENSORS_WEIGHTS_NAME as SAFE_ADAPTER_WEIGHTS_NAME
 from peft.utils import WEIGHTS_NAME as ADAPTER_WEIGHTS_NAME
-from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, WEIGHTS_INDEX_NAME, WEIGHTS_NAME
+from transformers.utils import (
+    SAFE_WEIGHTS_INDEX_NAME,
+    SAFE_WEIGHTS_NAME,
+    WEIGHTS_INDEX_NAME,
+    WEIGHTS_NAME,
+)
 
 
 CHECKPOINT_NAMES = {
@@ -56,7 +61,16 @@ LLAMABOARD_CONFIG = "llamaboard_config.yaml"
 
 METHODS = ["full", "freeze", "lora"]
 
-MOD_SUPPORTED_MODELS = {"bloom", "falcon", "gemma", "llama", "mistral", "mixtral", "phi", "starcoder2"}
+MOD_SUPPORTED_MODELS = {
+    "bloom",
+    "falcon",
+    "gemma",
+    "llama",
+    "mistral",
+    "mixtral",
+    "phi",
+    "starcoder2",
+}
 
 PEFT_METHODS = {"lora"}
 
@@ -118,7 +132,9 @@ def register_model_group(
 ) -> None:
     for name, path in models.items():
         SUPPORTED_MODELS[name] = path
-        if template is not None and any(suffix in name for suffix in ("-Chat", "-Instruct")):
+        if template is not None and any(
+            suffix in name for suffix in ("-Chat", "-Instruct")
+        ):
             DEFAULT_TEMPLATE[name] = template
         if vision:
             VISION_MODELS.add(name)
