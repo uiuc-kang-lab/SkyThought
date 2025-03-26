@@ -1,6 +1,6 @@
 system_prompts:
   qwen_cot: &qwen_cot_system_prompt "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
-  qwen_cot_math: &qwen_math "<|im_start|>system\nPlease reason step by step, and put your final answer within \\boxed{{}}.<|im_end|>\n<|im_start|>user\n{input}<|im_end|>\n<|im_start|>assistant\n"
+  qwen_cot_math: &qwen_math "<|im_start|>system\nPlease reason step by step, and put your final answer within \\boxed{{}}.<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
   prime_rl:
     &prime_rl_system_prompt # system prompt can also point to a text file. the path to the file should be relative to the parent dir of model_configs.yaml
     path: system_prompts/prime.txt
@@ -82,3 +82,6 @@ models:
   Qwen/Qwen2.5-Math-7B:
     system_prompt: *qwen_cot_system_prompt # this gets 57.5% accuracy.
     # system_prompt: *qwen_math  # based on Qwen's broken prompt that gets 35% accuracy in their repo. Here, it gets 0% accuracy. Could probably be improved by matching the prompt template with the SkyThought parsing code.
+
+  sail/Qwen2.5-Math-7B-Oat-Zero:
+    system_prompt: *qwen_math
