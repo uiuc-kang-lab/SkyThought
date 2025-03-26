@@ -1,0 +1,148 @@
+---
+- name: Setup SkyThought Environment on RunPod
+  hosts: localhost
+  connection: local
+  become: no
+  vars:
+    workspace_dir: /workspace
+    skythought_dir: "{{ workspace_dir }}/SkyThought"
+    qwen_dir: "{{ workspace_dir }}/Qwen2.5-Math"
+    cache_dir: "{{ workspace_dir }}/.cache"
+    python_version: "3.10"
+
+  tasks:
+    - name: Install required packages
+      become: yes
+      apt:
+        name:
+          - tmux
+          - htop
+          - rsync
+          - less
+        state: present
+        update_cache: yes
+
+    - name: Check if uv is installed
+      stat:
+        path: "{{ ansible_env.HOME }}/.local/bin/uv"
+      register: uv_installed
+
+    - name: Install uv
+      when: not uv_installed.stat.exists
+      shell: |
+        cd {{ workspace_dir }}
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        source $HOME/.local/bin/env
+      args:
+        executable: /bin/bash
+
+    - name: Check if SkyThought directory exists
+      stat:
+        path: "{{ skythought_dir }}"
+      register: skythought_dir_check
+
+    - name: Clone SkyThought repository
+      when: not skythought_dir_check.stat.exists
+      git:
+        repo: https://github.com/uiuc-kang-lab/SkyThought
+        dest: "{{ skythought_dir }}"
+
+    - name: Exclude wandb directory so that git clean -fd doesn't clobber it when we make remote codebase consistent with local codebase
+      lineinfile:
+        path: "{{ skythought_dir }}/.git/info/exclude"
+        line: "wandb/"
+        create: yes
+
+    - name: Check if SkyThought venv exists
+      stat:
+        path: "{{ skythought_dir }}/.venv"
+      register: skythought_venv_check
+
+    - name: Set up SkyThought virtual environment and dependencies
+      when: not skythought_venv_check.stat.exists
+      shell: |
+        cd {{ skythought_dir }}
+        $HOME/.local/bin/uv venv --python {{ python_version }}
+        $HOME/.local/bin/uv pip install -e .
+      args:
+        executable: /bin/bash
+
+    - name: Create cache directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      with_items:
+        - "{{ cache_dir }}/huggingface"
+        - "{{ workspace_dir }}/python_packages"
+        - "{{ workspace_dir }}/uv_cache"
+        - "{{ workspace_dir }}/pip_cache"
+
+    - name: Check if environment variables are set
+      shell: grep -q "HF_HOME" ~/.bashrc
+      register: env_check
+      ignore_errors: yes
+
+    - name: Configure environment variables
+      when: env_check.rc != 0
+      blockinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        block: |
+          export CUDA_VISIBLE_DEVICES="0"
+          export HF_HOME={{ cache_dir }}/huggingface
+          export UV_CACHE_DIR="{{ workspace_dir }}/uv_cache"
+          export PIP_CACHE_DIR="{{ workspace_dir }}/pip_cache"
+          export UV_PIP_DEFAULT_INSTALL_OPTIONS="--target={{ workspace_dir }}/python_packages --cache-dir={{ workspace_dir }}/uv_cache"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Environment Variables"
+
+    - name: Check if Qwen directory exists
+      stat:
+        path: "{{ qwen_dir }}"
+      register: qwen_dir_check
+
+    - name: Clone Qwen repository
+      when: not qwen_dir_check.stat.exists
+      git:
+        repo: https://github.com/uiuc-kang-lab/Qwen2.5-Math
+        dest: "{{ qwen_dir }}"
+
+    - name: Check if Qwen venv exists
+      stat:
+        path: "{{ qwen_dir }}/.venv"
+      register: qwen_venv_check
+
+    - name: Set up Qwen virtual environment and dependencies
+      when: not qwen_venv_check.stat.exists
+      shell: |
+        cd {{ qwen_dir }}
+        $HOME/.local/bin/uv venv --python {{ python_version }}
+        source .venv/bin/activate
+        cd evaluation/latex2sympy
+        pip install -e .
+        cd ..
+        pip install -r requirements.txt
+        pip install vllm==0.5.1 --no-build-isolation
+        pip install transformers==4.42.3
+      args:
+        executable: /bin/bash
+
+    - name: Kill existing tmux sessions if they exist
+      shell: tmux kill-session -t {{ item }} || true
+      with_items:
+        - skythought
+        - qwen
+      ignore_errors: yes
+
+    - name: Start SkyThought tmux session with evaluation command
+      shell: |
+        tmux new-session -d -s skythought
+        tmux send-keys -t skythought "cd {{ skythought_dir }} && source .venv/bin/activate" C-m
+        tmux send-keys -t skythought "# Run evaluation with:" C-m
+        tmux send-keys -t skythought "# skythought evaluate --task amc23 --model Qwen/Qwen2.5-Math-7B --backend vllm --backend-args dtype=float32 --sampling-params max_tokens=4096,temperature=0.6,top_p=0.95 --result-dir /workspace/outputs/skythought/" C-m
+
+    - name: Start Qwen tmux session with evaluation command
+      shell: |
+        tmux new-session -d -s qwen
+        tmux send-keys -t qwen "cd {{ qwen_dir }} && source .venv/bin/activate && cd evaluation" C-m
+        tmux send-keys -t qwen "# Run Qwen evaluation with:" C-m
+        tmux send-keys -t qwen "# TOKENIZERS_PARALLELISM=false python3 -u math_eval.py --model_name_or_path Qwen/Qwen2.5-Math-7B --data_name amc23 --output_dir /workspace/outputs/Qwen/Qwen2.5-Math-7B/math_eval --split test --prompt_type qwen25-math-cot --seed 42 --temperature 0.6 --n_sampling 8 --top_p 0.95 --start 0 --end -1 --use_vllm --save_outputs --overwrite" C-m
