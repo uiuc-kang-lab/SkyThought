@@ -16,6 +16,8 @@ dependencies = [
     "setuptools",
     "typer",
     "hf_transfer",
+    "wandb",
+    "gitpython",
 ]
 license = { text = "Apache-2.0" }
 readme = "README.md"

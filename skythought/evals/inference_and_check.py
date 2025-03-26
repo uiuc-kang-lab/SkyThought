@@ -35,6 +35,7 @@ from skythought.evals.tasks import (
 from skythought.evals.util.metrics import pass_at_k
 from skythought.evals.util.response import Response, SingleParsedResponse
 from skythought.evals.util.results import SummaryResults, save_summary
+from skythought.evals.util.wandb_logger import init_wandb, log_eval_results, finish_wandb
 
 logger = logging.getLogger(__name__)
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -60,13 +61,9 @@ def load_existing_results(result_file) -> Dict[str, Dict[str, Any]]:
     return records
 
 
-def save_results(
-    result_filepath: os.PathLike, id_to_results: Dict[str, Dict[str, Any]]
-):
+def save_results(result_filepath: os.PathLike, id_to_results: Dict[str, Dict[str, Any]]):
     with open(result_filepath, "w", encoding="utf-8") as f:
-        f.write(
-            json.dumps(id_to_results, indent=4, cls=NumpyEncoder, ensure_ascii=False)
-        )
+        f.write(json.dumps(id_to_results, indent=4, cls=NumpyEncoder, ensure_ascii=False))
 
 
 def fetch_response_openai(
@@ -159,9 +156,7 @@ def inference(
         responses = fetch_responses_ray(
             conversations, backend_params.params, model_config, sampling_params
         )
-        responses = [
-            Response.from_ray_response(response) for response in responses.iter_rows()
-        ]
+        responses = [Response.from_ray_response(response) for response in responses.iter_rows()]
         # NOTE: This deepcopy is needed to avoid a SIGSEV error related to object cleanup with the ray object store and
         # the later use of ProcessPoolExecutor - see here: https://github.com/NovaSky-AI/SkyThought/pull/63#discussion_r1941899714
         # TODO: revisit the underlying issue and remove the deepcopy if possible
@@ -333,12 +328,10 @@ def score_responses(
             new_response_entry = future.result()
 
             # Update correctness and reason in the original results dict
-            id_to_results[unique_id]["responses"][i][
+            id_to_results[unique_id]["responses"][i]["correctness"] = new_response_entry[
                 "correctness"
-            ] = new_response_entry["correctness"]
-            id_to_results[unique_id]["responses"][i]["reason"] = new_response_entry[
-                "reason"
             ]
+            id_to_results[unique_id]["responses"][i]["reason"] = new_response_entry["reason"]
 
             # Track scores separately for metrics like pass@k
             # TODO (sumanthrh): this can be improved
@@ -380,9 +373,7 @@ def score_responses_for_indices(
             response_entry = handler.update_results(record, content)
 
             # Update correctness and reason in the original results dict
-            id_to_results[idx]["responses"][i]["correctness"] = response_entry[
-                "correctness"
-            ]
+            id_to_results[idx]["responses"][i]["correctness"] = response_entry["correctness"]
             id_to_results[idx]["responses"][i]["reason"] = response_entry["reason"]
             scores.append(response_entry["correctness"])
     return scores
@@ -400,58 +391,76 @@ def generate_and_score(
     run_config_dict: dict,
     **kwargs,
 ):
-    result_file = output_dir / RESULTS_FILENAME
-    summary_file = output_dir / SUMMARY_FILENAME
-
-    eval_data = handler.load_and_filter_dataset(start, end)
-    id_to_results = {}
-
-    id_to_results, prompt_tokens, completion_tokens = generate_responses_for_dataset(
-        handler=handler,
-        model_config=model_config,
-        backend=backend,
-        backend_params=backend_params,
-        sampling_params=sampling_params,
-        eval_data=eval_data,
-        id_to_results=id_to_results,
-        **kwargs,
+    # Initialize W&B
+    init_wandb(
+        project="skythought-evals",
+        name=f"{model_config.model_id}_{run_config_dict['task']['name']}",
+        config=run_config_dict,
     )
 
-    accuracy, id_to_scores, total_finish = score_responses(
-        handler, id_to_results, max_workers=32
-    )
-    logger.info(f"Accuracy: {accuracy}")
+    try:
+        result_file = output_dir / RESULTS_FILENAME
+        summary_file = output_dir / SUMMARY_FILENAME
 
-    num_responses_total = len(id_to_results) * sampling_params.params.n
+        eval_data = handler.load_and_filter_dataset(start, end)
+        id_to_results = {}
 
-    pass_at_k_metrics = None
-    if sampling_params.params.n > 1:
-        pass_at_k_metrics = pass_at_k(sampling_params.params.n, id_to_scores)
+        id_to_results, prompt_tokens, completion_tokens = generate_responses_for_dataset(
+            handler=handler,
+            model_config=model_config,
+            backend=backend,
+            backend_params=backend_params,
+            sampling_params=sampling_params,
+            eval_data=eval_data,
+            id_to_results=id_to_results,
+            **kwargs,
+        )
 
-    total_completion_tokens = int(sum(completion_tokens))
-    total_prompt_tokens = int(sum(prompt_tokens))
-    summary_data = SummaryResults(
-        configuration=run_config_dict,
-        total_completion_tokens=total_completion_tokens,
-        total_prompt_tokens=total_prompt_tokens,
-        avg_completion_tokens=(
-            round(total_completion_tokens / num_responses_total, 3)
-            if total_completion_tokens
-            else 0
-        ),
-        avg_prompt_tokens=(
-            round(total_prompt_tokens / num_responses_total, 3)
-            if total_prompt_tokens
-            else 0
-        ),
-        accuracy=accuracy,
-        pass_at_k=pass_at_k_metrics,
-    )
+        accuracy, id_to_scores, total_finish = score_responses(
+            handler, id_to_results, max_workers=32
+        )
+        logger.info(f"Accuracy: {accuracy}")
 
-    save_summary(summary_file, summary_data)
-    save_results(result_file, id_to_results)
-    logger.info(f"Saved results to {result_file}")
-    logger.info(f"Summary saved to {summary_file}")
+        num_responses_total = len(id_to_results) * sampling_params.params.n
+
+        pass_at_k_metrics = None
+        if sampling_params.params.n > 1:
+            pass_at_k_metrics = pass_at_k(sampling_params.params.n, id_to_scores)
+
+        total_completion_tokens = int(sum(completion_tokens))
+        total_prompt_tokens = int(sum(prompt_tokens))
+        summary_data = SummaryResults(
+            configuration=run_config_dict,
+            total_completion_tokens=total_completion_tokens,
+            total_prompt_tokens=total_prompt_tokens,
+            avg_completion_tokens=(
+                round(total_completion_tokens / num_responses_total, 3)
+                if total_completion_tokens
+                else 0
+            ),
+            avg_prompt_tokens=(
+                round(total_prompt_tokens / num_responses_total, 3) if total_prompt_tokens else 0
+            ),
+            accuracy=accuracy,
+            pass_at_k=pass_at_k_metrics,
+        )
+
+        save_summary(summary_file, summary_data)
+        save_results(result_file, id_to_results)
+        logger.info(f"Saved results to {result_file}")
+        logger.info(f"Summary saved to {summary_file}")
+
+        # Log results to W&B
+        log_eval_results(
+            summary_results=summary_data.to_json_dict(),
+            model_name=model_config.model_id,
+            task_name=run_config_dict["task"]["name"],
+        )
+
+        return summary_data
+
+    finally:
+        finish_wandb()
 
 
 def generate_and_save(
@@ -504,9 +513,7 @@ def generate_and_save(
             else 0
         ),
         avg_prompt_tokens=(
-            round(total_prompt_tokens / num_responses_total, 3)
-            if total_prompt_tokens
-            else 0
+            round(total_prompt_tokens / num_responses_total, 3) if total_prompt_tokens else 0
         ),
     )
 
@@ -535,14 +542,10 @@ def score_results(
         N = len(next(iter(id_to_results.values()))["responses"])
         score_responses_for_indices(handler, id_to_results, indices=indices)
         id_to_scores = {
-            index: [
-                id_to_results[index]["responses"][i]["correctness"] for i in range(N)
-            ]
+            index: [id_to_results[index]["responses"][i]["correctness"] for i in range(N)]
             for index in id_to_results
         }
-        accuracy = round(
-            sum(map(sum, id_to_scores.values())) / (len(id_to_scores) * N), 4
-        )
+        accuracy = round(sum(map(sum, id_to_scores.values())) / (len(id_to_scores) * N), 4)
 
     sample_count = 0
     if id_to_results:
