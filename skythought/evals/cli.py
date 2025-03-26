@@ -92,14 +92,10 @@ def parse_common_args(
 ]:
     # For strings passed via CLI, recover escape characters properly. This is hacky but works and convenient for short strings
     system_prompt = (
-        system_prompt.encode("utf-8").decode("unicode_escape")
-        if system_prompt
-        else None
+        system_prompt.encode("utf-8").decode("unicode_escape") if system_prompt else None
     )
     assistant_prefill = (
-        assistant_prefill.encode("utf-8").decode("unicode_escape")
-        if assistant_prefill
-        else None
+        assistant_prefill.encode("utf-8").decode("unicode_escape") if assistant_prefill else None
     )
 
     # TODO (sumanthrh): We should ideally read from ctx and get user-provided params
@@ -111,9 +107,7 @@ def parse_common_args(
         os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 
     if task not in TASK_NAMES_TO_YAML:
-        raise ValueError(
-            f"Task {task} not found. Should be one of {TASK_NAMES_TO_YAML.keys()}"
-        )
+        raise ValueError(f"Task {task} not found. Should be one of {TASK_NAMES_TO_YAML.keys()}")
     task_args_as_dict = parse_multi_args(task_args)
     user_provided_sampling_params_as_dict = parse_multi_args(sampling_params)
     sampling_params_as_dict = parse_multi_args(SAMPLING_PARAMS_DEFAULT)
@@ -127,23 +121,17 @@ def parse_common_args(
     sampling_params: SamplingParameters = SamplingParameters.from_dict(
         backend, sampling_params_as_dict
     )
-    backend_params: BackendParameters = BackendParameters.from_dict(
-        backend, backend_args_as_dict
-    )
+    backend_params: BackendParameters = BackendParameters.from_dict(backend, backend_args_as_dict)
 
     if sampling_params.params.top_p < 1 and model.startswith("openai/o1"):
-        print(
-            "OpenAI o1 models do not support `top_p` sampling. Resetting `top_p` to 1"
-        )
+        print("OpenAI o1 models do not support `top_p` sampling. Resetting `top_p` to 1")
         sampling_params.params.top_p = 1
         sampling_params_as_dict["top_p"] = 1
 
     if sampling_params.params.temperature == 0 and sampling_params.params.n > 1:
         sampling_params.params.n = 1
         sampling_params_as_dict["n"] = 1
-        logger.warning(
-            "Warning: Temperature 0 does not support multiple samples. Setting n=1."
-        )
+        logger.warning("Warning: Temperature 0 does not support multiple samples. Setting n=1.")
 
     return (
         task,
@@ -228,9 +216,7 @@ def evaluate(
             help="System prompt to use, overriding any pre-configured system prompt for this model."
         ),
     ] = None,
-    n: Annotated[
-        int, typer.Option(help="Number of samples generated per problem.")
-    ] = None,
+    n: Annotated[int, typer.Option(help="Number of samples generated per problem.")] = None,
     seed: Annotated[int, typer.Option(help="Random seed.")] = 41,
     assistant_prefill: Annotated[
         str,
@@ -239,16 +225,12 @@ def evaluate(
         ),
     ] = None,
     as_test: Annotated[
-        bool, typer.Option(help="Perform a test run on 10 samples of the dataset.")
+        bool, typer.Option(help="Perform a test run on 2 samples of the dataset.")
     ] = False,
-    overwrite: Annotated[
-        bool, typer.Option(help="Overwrite existing results.")
-    ] = False,
+    overwrite: Annotated[bool, typer.Option(help="Overwrite existing results.")] = False,
     batch_size: Annotated[
         int,
-        typer.Option(
-            help="Batch size for inference. only applicable for the vllm backend."
-        ),
+        typer.Option(help="Batch size for inference. only applicable for the vllm backend."),
     ] = 64,
 ):
     set_seed(seed)
@@ -289,9 +271,9 @@ def evaluate(
     end = -1
     if as_test:
         start = 0
-        end = 10
+        end = 2
         sampling_params.params.max_tokens = 2048
-        logger.info("Running test run with 10 samples and max tokens set to 2048.")
+        logger.info("Running test run with 2 samples and max tokens set to 2048.")
 
     task_config = TaskConfig.from_yaml(TASK_NAMES_TO_YAML[task])
     handler_name = task_config.handler
@@ -401,22 +383,16 @@ def generate(
             help="System prompt to use, overriding any pre-configured system prompt for this model."
         ),
     ] = None,
-    n: Annotated[
-        int, typer.Option(help="Number of samples generated per problem.")
-    ] = None,
+    n: Annotated[int, typer.Option(help="Number of samples generated per problem.")] = None,
     seed: Annotated[int, typer.Option(help="Random seed.")] = 41,
     assistant_prefill: Annotated[
         str,
         typer.Option(help=r'Assistant prefill for the model response. Ex: "<think>\n"'),
     ] = None,
-    overwrite: Annotated[
-        bool, typer.Option(help="Overwrite existing results.")
-    ] = False,
+    overwrite: Annotated[bool, typer.Option(help="Overwrite existing results.")] = False,
     batch_size: Annotated[
         int,
-        typer.Option(
-            help="Batch size for inference. only applicable for the vllm backend."
-        ),
+        typer.Option(help="Batch size for inference. only applicable for the vllm backend."),
     ] = 64,
     start: Annotated[int, typer.Option(help="Start index for the dataset.")] = 0,
     end: Annotated[
@@ -425,9 +401,7 @@ def generate(
             help="End index for the dataset (non-inclusive). If a negative value is provided, we use all the samples."
         ),
     ] = -1,
-    resume_from: Annotated[
-        str, typer.Option(help="Resume from a previous run.")
-    ] = None,
+    resume_from: Annotated[str, typer.Option(help="Resume from a previous run.")] = None,
 ):
     set_seed(seed)
 
@@ -529,9 +503,7 @@ def generate(
 
 @app.command("score", help="Score a model on a task")
 def score(
-    run_dir: Annotated[
-        str, typer.Option(..., help="The directory of saved results to score")
-    ],
+    run_dir: Annotated[str, typer.Option(..., help="The directory of saved results to score")],
     task: Annotated[
         str,
         typer.Option(
@@ -560,9 +532,7 @@ def score(
         ids = list(set(ids))
 
     if task not in TASK_NAMES_TO_YAML:
-        raise ValueError(
-            f"Task {task} not found. Should be one of {TASK_NAMES_TO_YAML.keys()}"
-        )
+        raise ValueError(f"Task {task} not found. Should be one of {TASK_NAMES_TO_YAML.keys()}")
 
     task_config = TaskConfig.from_yaml(TASK_NAMES_TO_YAML[task])
     handler_name = task_config.handler

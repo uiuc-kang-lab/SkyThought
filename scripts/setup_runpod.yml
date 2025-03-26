@@ -53,6 +53,22 @@
         line: "wandb/"
         create: yes
 
+    - name: Extract WANDB_API_KEY from .env
+      shell: "grep '^WANDB_API_KEY=' /workspace/SkyThought/.env | cut -d '=' -f2"
+      register: wandb_api_key
+      changed_when: false
+
+    - name: Create /root/.netrc with WANDB credentials
+      copy:
+        dest: /root/.netrc
+        content: |
+          machine api.wandb.ai
+            login user
+            password {{ wandb_api_key.stdout }}
+        owner: root
+        group: root
+        mode: "0600"
+
     - name: Check if SkyThought venv exists
       stat:
         path: "{{ skythought_dir }}/.venv"

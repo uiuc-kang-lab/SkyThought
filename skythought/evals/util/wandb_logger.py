@@ -3,6 +3,9 @@ from typing import Any, Dict, Optional
 import wandb
 from git import Repo
 
+# Set default wandb entity
+os.environ.setdefault("WANDB_ENTITY", "ddkang-uiuc-rl-generalization")
+
 
 def get_git_sha() -> str:
     repo = Repo(search_parent_directories=True)
