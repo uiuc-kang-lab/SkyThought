@@ -274,6 +274,7 @@ def evaluate(
         end = 2
         sampling_params.params.max_tokens = 2048
         logger.info("Running test run with 2 samples and max tokens set to 2048.")
+        os.environ["WANDB_TAGS"] = "debug"
 
     task_config = TaskConfig.from_yaml(TASK_NAMES_TO_YAML[task])
     handler_name = task_config.handler
