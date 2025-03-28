@@ -5,6 +5,8 @@ deploy:
 
 scp_setup_runpod:
 	scp scripts/setup_runpod.yml runpod:/workspace
+	mkdir -p runpod:/workspace/SkyThought
+	scp .env runpod:/workspace/SkyThought
 	ssh runpod "pip install ansible"
 	@echo "Playbook copied successfully to /workspace/setup_runpod.yml"
 	@echo "Next steps:"
