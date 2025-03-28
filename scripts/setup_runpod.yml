@@ -140,7 +140,6 @@
         path: "{{ ansible_env.HOME }}/.bashrc"
         block: |
           export HF_HOME={{ cache_dir }}/huggingface
-          export WANDB_ENTITY="ddkang-uiuc-rl-generalization"
           export UV_CACHE_DIR="{{ workspace_dir }}/uv_cache"
           export PIP_CACHE_DIR="{{ workspace_dir }}/pip_cache"
           export UV_PIP_DEFAULT_INSTALL_OPTIONS="--target={{ workspace_dir }}/python_packages --cache-dir={{ workspace_dir }}/uv_cache"
