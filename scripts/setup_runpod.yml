@@ -78,7 +78,7 @@
       when: not skythought_venv_check.stat.exists
       shell: |
         cd {{ skythought_dir }}
-        $HOME/.local/bin/uv venv --python {{ python_version }}
+        $HOME/.local/bin/uv venv --python 3.10
         $HOME/.local/bin/uv pip install -e .
       args:
         executable: /bin/bash

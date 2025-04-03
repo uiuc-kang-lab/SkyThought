@@ -18,6 +18,7 @@ dependencies = [
     "hf_transfer",
     "wandb",
     "gitpython",
+    "legalbench @ git+https://github.com/uiuc-kang-lab/legalbench.git",
 ]
 license = { text = "Apache-2.0" }
 readme = "README.md"

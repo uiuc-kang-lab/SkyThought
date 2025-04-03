@@ -207,4 +207,25 @@ The code in this repository is mostly described in the post below. Please consid
 # Acknowledgement
 This work is done at [Berkeley Sky Computing Lab](https://sky.cs.berkeley.edu/), with the amazing compute support from [Lambda Labs](https://lambdalabs.com/service/gpu-cloud?srsltid=AfmBOop5FnmEFTkavVtdZDsLWvHWNg6peXtat-OXJ9MW5GMNsk756PE5), [Anyscale](https://www.anyscale.com/), and [Databricks](https://www.databricks.com/). We would like to express our gratitude for the valuable academic feedback and support from the [Still-2 Team](https://arxiv.org/pdf/2412.09413), and Junyang Lin from the [Qwen Team](https://qwenlm.github.io/).
 
+## Benchmarks
+
+SkyThought provides implementations of standard benchmarks for evaluating Large Language Models.
+
+Currently supported:
+- GSM8K
+- ARC Challenge
+- APPS
+- GPQA Diamond
+- MMLU
+- MMLU Pro
+- Math
+- LearnedHands
+- TACO
+- AIME
+- AMC23
+- MinervaMatch
+- OlympiadBench Math
+- OMNI Math
+- LegalBench (162 legal tasks)
+
 

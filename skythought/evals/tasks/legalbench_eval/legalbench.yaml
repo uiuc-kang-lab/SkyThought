@@ -1,0 +1,8 @@
+handler: legalbench
+dataset_path: nguha/legalbench
+dataset_subset: abercrombie  # Default task, will be overridden for specific tasks
+dataset_split: test
+question_key: text
+answer_key: answer
+templating_parameters:
+  use_prompt_template: true  # Use task-specific templates from LegalBench 

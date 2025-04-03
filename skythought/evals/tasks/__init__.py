@@ -7,6 +7,7 @@ from .arc.arc_handler import ARCChallengeTaskHandler
 from .base import ConversationType, TaskConfig, TaskHandler
 from .gpqa_diamond.gpqa_diamond_handler import GPQADiamondTaskHandler
 from .gsm8k.gsm8k_handler import GSM8KTaskHandler
+from .legalbench_eval.legalbench_handler import LegalBenchTaskHandler
 from .livecodebench.livecodebench_handler import LiveCodeBenchTaskHandler
 from .math.math_handler import MathTaskHandler
 from .minervamath.minervamath_handler import MinervaMathTaskHandler
@@ -33,6 +34,7 @@ TASK_HANDLER_MAP = {
     "minervamath": MinervaMathTaskHandler,
     "olympiadbench_math": OlympiadBenchMathTaskHandler,
     "omni_math": OMNIMathTaskHandler,
+    "legalbench": LegalBenchTaskHandler,
 }
 TASK_NAMES_TO_YAML = get_tasks(os.path.dirname(__file__))
 
@@ -53,6 +55,7 @@ __all__ = [
     "MathTaskHandler",
     "OlympiadBenchMathTaskHandler",
     "MinervaMathTaskHandler",
+    "LegalBenchTaskHandler",
     "TaskConfig",
     "TASK_HANDLER_MAP",
     "TASK_NAMES_TO_YAML",
